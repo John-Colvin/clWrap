@@ -1,0 +1,12 @@
+{
+    "name": "clwrap-test",
+
+    "sourcePaths": ["."],
+
+    "targetType": "executable",
+
+    "dependencies": {
+        "derelict_extras-opencl": ">=1.2.0",
+        "derelict-gl3": ">=1.0.10"
+    }
+}

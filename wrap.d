@@ -1,6 +1,7 @@
 module clWrap.wrap;
 
-public import derelict.opencl.cl;
+public import clWrap.cl;
+
 import derelict.opengl3.gl3;
 import std.exception, std.range, std.conv, std.traits, std.string;
 debug import std.stdio;
@@ -422,12 +423,12 @@ cl_program buildProgram(cl_program program, cl_device_id[] devices = null, const
     return program;
 }
 
-struct Kernel(uint nDims, ArgTypes_ ...)
+struct Kernel(uint nDims, ArgDesc ...)
 {
     cl_kernel id;
     alias id this;
  
-    alias ArgTypes = ArgTypes_;
+    alias ArgTypes = Tuple!ArgDesc;
 
     enum nParallelDims = nDims;
 
