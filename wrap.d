@@ -1,6 +1,8 @@
 module clWrap.wrap;
 
-public import clWrap.cl;
+public static import cl = clWrap.cl;
+
+public import derelict.opencl.cl : CLVersion;
 
 import derelict.opengl3.gl3;
 import std.exception, std.range, std.conv, std.traits, std.string;
@@ -19,7 +21,7 @@ auto localBuffSize(size_t s)
 struct NoChange{}
 @property auto noChange(){ return NoChange(); }
 
-void clSetKernelArgs(TL ...)(cl_kernel kernel, TL args)
+void clSetKernelArgs(TL ...)(cl.kernel kernel, TL args)
 {
     foreach(i, arg; args)
     {
@@ -35,7 +37,7 @@ void clSetKernelArgs(TL ...)(cl_kernel kernel, TL args)
         }
         else static if(is(typeof(arg) : clBuffer!X, X))
         {
-            clSetKernelArg(kernel, i, cl_mem.sizeof, &(arg.buffer))
+            clSetKernelArg(kernel, i, cl.mem.sizeof, &(arg.buffer))
                 .clEnforce();
         }
         else
@@ -46,19 +48,19 @@ void clSetKernelArgs(TL ...)(cl_kernel kernel, TL args)
     }
 }
 
-void clWrite(T)(cl_command_queue queue, cl_mem buffer, T[] data,
-        bool blocking = false, size_t offset = 0, const cl_event[] waitList = null,
-        cl_event* event = null)
+void clWrite(T)(cl.command_queue queue, cl.mem buffer, T[] data,
+        bool blocking = false, size_t offset = 0, const cl.event[] waitList = null,
+        cl.event* event = null)
 {
     clEnqueueWriteBuffer(queue, buffer, blocking, offset, data.memSize, data.ptr,
             cast(uint)waitList.length, waitList.ptr, event)
         .clEnforce();
 }
 
-void clEnqueueCLKernel(T0, T1 : size_t[], T2 : size_t[])(cl_command_queue queue,
-        cl_kernel kernel, const T0 globalWorkSize,
+void clEnqueueCLKernel(T0, T1 : size_t[], T2 : size_t[])(cl.command_queue queue,
+        cl.kernel kernel, const T0 globalWorkSize,
         const T1 globalWorkOffset = null, const T2 localWorkSize = null,
-        const cl_event[] waitList = null, cl_event* event = null)
+        const cl.event[] waitList = null, cl.event* event = null)
     if(isArray!T0 && is(ElementType!T0 : size_t) &&
        isArray!T1 && is(ElementType!T1 : size_t) &&
        isArray!T2 && is(ElementType!T1 : size_t)) 
@@ -77,9 +79,9 @@ body
         .clEnforce();
 }
 
-void clRead(T)(cl_command_queue queue, cl_mem buffer, T[] data,
-        bool blocking = false, size_t offset = 0, const cl_event[] waitList = null,
-        cl_event* event = null)
+void clRead(T)(cl.command_queue queue, cl.mem buffer, T[] data,
+        bool blocking = false, size_t offset = 0, const cl.event[] waitList = null,
+        cl.event* event = null)
 {    
     clEnqueueReadBuffer(queue, buffer, blocking, offset, data.memSize, data.ptr,
             cast(uint)waitList.length, waitList.ptr, event)
@@ -89,46 +91,46 @@ void clRead(T)(cl_command_queue queue, cl_mem buffer, T[] data,
 /// This should not be stateful. All of this info can be queried from clGetMemObjectInfo
 struct clBuffer(T)
 {
-    cl_buffer_region region;
-    cl_mem buffer;
-    cl_mem parentBuffer;    
-    cl_mem_flags subFlags; //doesn't seem to be any way of specifying no flags
+    cl.buffer_region region;
+    cl.mem buffer;
+    cl.mem parentBuffer;    
+    cl.mem_flags subFlags; //doesn't seem to be any way of specifying no flags
     alias buffer this;
 
-    this(AT)(cl_context context, cl_mem_flags flags, AT data)
+    this(AT)(cl.context context, cl.mem_flags flags, AT data)
         if(isArray!AT)
     {
         debug writeln("new buffer, type: ", T.stringof,
                 " data.length: ", data.length, " data.memSize: ", data.memSize);
 
-        cl_int status;
+        cl.int_ status;
         buffer = clCreateBuffer(context, flags, data.memSize, data.ptr, &status);
         status.clEnforce();
 
         parentBuffer = buffer;
-        subFlags = flags & ~(CL_MEM_USE_HOST_PTR
-                | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR);
+        subFlags = flags & ~(cl.MEM_USE_HOST_PTR
+                | cl.MEM_ALLOC_HOST_PTR | cl.MEM_COPY_HOST_PTR);
 
-        region = cl_buffer_region(0, data.memSize);
+        region = cl.buffer_region(0, data.memSize);
     }
 
-    this()(cl_context context, cl_mem_flags flags, size_t length)
+    this()(cl.context context, cl.mem_flags flags, size_t length)
     {
         debug writeln("new buffer, type: ", T.stringof,
                 " length: ", length, " memSize: ", length * T.sizeof);
 
-        cl_int status;
+        cl.int_ status;
         buffer = clCreateBuffer(context, flags, length * T.sizeof, null, &status);
         status.clEnforce();
 
         parentBuffer = buffer;
-        subFlags = flags & ~(CL_MEM_USE_HOST_PTR
-                | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR);
+        subFlags = flags & ~(cl.MEM_USE_HOST_PTR
+                | cl.MEM_ALLOC_HOST_PTR | cl.MEM_COPY_HOST_PTR);
         
-        region = cl_buffer_region(0, length * T.sizeof);
+        region = cl.buffer_region(0, length * T.sizeof);
     }
 
-    auto slice(size_t i0, size_t i1, cl_mem_flags flags = 0)
+    auto slice(size_t i0, size_t i1, cl.mem_flags flags = 0)
     in
     {
         assert(i1 > i0);
@@ -138,7 +140,7 @@ struct clBuffer(T)
     body
     {
         clBuffer tmp;
-        tmp.region = cl_buffer_region(region.origin + i0 * T.sizeof, (i1 - i0) * T.sizeof);
+        tmp.region = cl.buffer_region(region.origin + i0 * T.sizeof, (i1 - i0) * T.sizeof);
 
         auto tmpFlags = flags ? flags : subFlags;
         auto regionPtr = &(tmp.region);
@@ -146,9 +148,9 @@ struct clBuffer(T)
         debug writeln(parentBuffer, " ", region, " ", tmp.region, " ",
                 subFlags, " ", flags, " ", tmpFlags, " ",regionPtr);
 
-        cl_int status;
+        cl.int_ status;
         tmp.buffer = clCreateSubBuffer(parentBuffer, tmpFlags,
-                CL_BUFFER_CREATE_TYPE_REGION, regionPtr, &status);
+                cl.BUFFER_CREATE_TYPE_REGION, regionPtr, &status);
         status.clEnforce();
 
         debug writeln("Created subBuffer");
@@ -188,10 +190,10 @@ struct clBuffer(T)
 struct CLPlatform
 {
     CLDevice[] devices;
-    cl_platform_id id;
+    cl.platform_id id;
     alias id this;
 
-    this(cl_platform_id id)
+    this(cl.platform_id id)
     {
         this.id = id;
     }
@@ -199,10 +201,10 @@ struct CLPlatform
     @property CLVersion version_()
     {
         size_t platformInfoSize;
-        clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, null, &platformInfoSize)
+        clGetPlatformInfo(id, cl.PLATFORM_VERSION, 0, null, &platformInfoSize)
             .clEnforce();
         auto platformVersionStr = new char[platformInfoSize];
-        clGetPlatformInfo(id, CL_PLATFORM_VERSION, platformInfoSize,
+        clGetPlatformInfo(id, cl.PLATFORM_VERSION, platformInfoSize,
                 platformVersionStr.ptr, null);
         import std.format;
         uint major, minor;
@@ -222,7 +224,7 @@ struct CLPlatform
         }
     }
 
-    auto getInfo(cl_platform_info flag)()
+    auto getInfo(cl.platform_info flag)()
     {
         return .getInfo!(clGetPlatformInfo, flag, platformInfoEnums)(id);
     }
@@ -230,10 +232,10 @@ struct CLPlatform
 
 auto getPlatforms()
 {
-    cl_uint numPlatforms;
+    cl.uint_ numPlatforms;
     clGetPlatformIDs(0, null, &numPlatforms).clEnforce();
     
-    auto platformIDs = new cl_platform_id[numPlatforms];
+    auto platformIDs = new cl.platform_id[numPlatforms];
 
     clGetPlatformIDs(numPlatforms, platformIDs.ptr, 
             null).clEnforce();
@@ -244,24 +246,24 @@ auto getPlatforms()
 struct CLDevice
 {
     CLDevice[] contexts;
-    cl_device_id id;
+    cl.device_id id;
     alias id this;
 
-    this(cl_device_id id)
+    this(cl.device_id id)
     {
         this.id = id;
     }
 
-    auto getInfo(cl_device_info flag)()
+    auto getInfo(cl.device_info flag)()
     {
         return .getInfo!(clGetDeviceInfo, flag, deviceInfoEnums)(id);
     }
 }
 
-auto getDevices(cl_platform_id platformID,
-        cl_device_type device_type = CL_DEVICE_TYPE_ALL)
+auto getDevices(cl.platform_id platformID,
+        cl.device_type device_type = cl.DEVICE_TYPE_ALL)
 {
-    cl_uint numDevices;
+    cl.uint_ numDevices;
     clGetDeviceIDs(
         platformID, 
         device_type, 
@@ -269,7 +271,7 @@ auto getDevices(cl_platform_id platformID,
         null,
         &numDevices).clEnforce();
 
-    auto deviceIDs = new cl_device_id[numDevices]; 
+    auto deviceIDs = new cl.device_id[numDevices]; 
 
     clGetDeviceIDs(
         platformID, 
@@ -284,15 +286,15 @@ auto getDevices(cl_platform_id platformID,
 struct CLContext
 {
     CLQueue[] queues;
-    cl_context id;
+    cl.context id;
     alias id this;
 
-    this(cl_context id)
+    this(cl.context id)
     {
         this.id = id;
     }
 
-    auto getInfo(cl_context_info flag)()
+    auto getInfo(cl.context_info flag)()
     {
         return .getInfo!(clGetContextInfo, flag, contextInfoEnums)(id);
     }
@@ -303,47 +305,47 @@ auto createContext(CLDevice[] devices)
     return .createContext(devices.map!"a.id".array);
 }
 
-auto createContext(cl_device_id[] devices)
+auto createContext(cl.device_id[] devices)
 in
 {
     assert(devices.length != 0);
-    cl_platform_id platform = CLDevice(devices[0]).getInfo!CL_DEVICE_PLATFORM;
+    cl.platform_id platform = CLDevice(devices[0]).getInfo!cl.DEVICE_PLATFORM;
     foreach(device; devices[1 .. $])
-        assert(CLDevice(device).getInfo!CL_DEVICE_PLATFORM == platform);
+        assert(CLDevice(device).getInfo!cl.DEVICE_PLATFORM == platform);
 }
 body
 {
-    cl_platform_id platform = CLDevice(devices[0]).getInfo!CL_DEVICE_PLATFORM;
-    cl_context_properties[3] props = [
-        cast(cl_context_properties)CL_CONTEXT_PLATFORM,
-        cast(cl_context_properties)platform,
-        cast(cl_context_properties)0];
+    cl.platform_id platform = CLDevice(devices[0]).getInfo!cl.DEVICE_PLATFORM;
+    cl.context_properties[3] props = [
+        cast(cl.context_properties)cl.CONTEXT_PLATFORM,
+        cast(cl.context_properties)platform,
+        cast(cl.context_properties)0];
     
     scope(exit) status.clEnforce();
     return CLContext(
             clCreateContext(props.ptr,
-                cast(cl_uint)(devices.length), devices.ptr,
+                cast(cl.uint_)(devices.length), devices.ptr,
                 null, null, &status)
             );
 }
 
 struct CLQueue
 {
-    cl_command_queue id;
+    cl.command_queue id;
     alias id this;
     
-    this(cl_command_queue id)
+    this(cl.command_queue id)
     {
         this.id = id;
     }
 
-    auto getInfo(cl_command_queue_info flag)()
+    auto getInfo(cl.command_queue_info flag)()
     {
         return .getInfo!(clGetCommandQueueInfo, flag, queueInfoEnums)(id);
     }
 }
 
-auto createCommandQueue(cl_context context, cl_device_id device, cl_command_queue_properties properties = 0)
+auto createCommandQueue(cl.context context, cl.device_id device, cl.command_queue_properties properties = 0)
 {
     scope(exit) status.clEnforce();
     return CLQueue(
@@ -351,24 +353,24 @@ auto createCommandQueue(cl_context context, cl_device_id device, cl_command_queu
             );
 }
 
-enum OUT_OF_ORDER_EXEC = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+enum OUT_OF_ORDER_EXEC = cl.QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 
 struct CLProgram
 {
-    cl_program id;
+    cl.program id;
     alias id this;
     
-    this(cl_program id)
+    this(cl.program id)
     {
         this.id = id;
     }
 
-    auto getInfo(cl_program_info flag)()
+    auto getInfo(cl.program_info flag)()
     {
         return .getInfo!(clGetProgramInfo, flag, programInfoEnums)(id);
     }
 /+
-    auto getBuildInfo(cl_program_build_info flag)(cl_device_id device)
+    auto getBuildInfo(cl.program_build_info flag)(cl.device_id device)
     {
         auto buildInfo(Args ...)(Args args)
         {
@@ -380,7 +382,7 @@ struct CLProgram
 }
 
 
-cl_program createProgramFromSource(cl_context context, const(char)[] source)
+cl.program createProgramFromSource(cl.context context, const(char)[] source)
 {
     auto ptr = source.ptr;
     auto length = source.length;
@@ -389,7 +391,7 @@ cl_program createProgramFromSource(cl_context context, const(char)[] source)
     return clCreateProgramWithSource(context, 1, &ptr, &length, &status);
 }
 
-cl_program createProgramFromSource(cl_context context, const(char)[][] sources)
+cl.program createProgramFromSource(cl.context context, const(char)[][] sources)
 {
     const(char)*[] sourcePtrs = sources.map!"a.ptr".array;
     size_t[] lengths = sources.map!"a.length".array;
@@ -399,24 +401,24 @@ cl_program createProgramFromSource(cl_context context, const(char)[][] sources)
             sourcePtrs.length.to!uint, sourcePtrs.ptr, lengths.ptr, &status);
 }
 
-cl_program buildProgram(cl_program program, cl_device_id[] devices = null, const(char)[] options = null)
+cl.program buildProgram(cl.program program, cl.device_id[] devices = null, const(char)[] options = null)
 {
     clBuildProgram(program,
             devices.length.to!uint, devices.ptr, options.toStringz(), null, null)
         .clEnforce({
                 if(devices.empty)
                 {
-                    size_t nDevices = CLProgram(program).getInfo!CL_PROGRAM_NUM_DEVICES;
-                    devices = new cl_device_id[nDevices];
-                    clGetProgramInfo(program, CL_PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
+                    size_t nDevices = CLProgram(program).getInfo!cl.PROGRAM_NUM_DEVICES;
+                    devices = new cl.device_id[nDevices];
+                    clGetProgramInfo(program, cl.PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
                 }
                 auto buildLogs = new ubyte[][devices.length];
                 foreach(i, dev; devices)
                 {
                     size_t len;
-                    clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 0, null, &len);
+                    clGetProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, 0, null, &len);
                     buildLogs[i] = new ubyte[len];
-                    clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, buildLogs[i].memSize, buildLogs[i].ptr, null);
+                    clGetProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, buildLogs[i].memSize, buildLogs[i].ptr, null);
                 }
                 return (cast(char[][])buildLogs).join("\n\n");
             }());
@@ -425,19 +427,19 @@ cl_program buildProgram(cl_program program, cl_device_id[] devices = null, const
 
 struct Kernel(uint nDims, ArgDesc ...)
 {
-    cl_kernel id;
+    cl.kernel id;
     alias id this;
  
     alias ArgTypes = Tuple!ArgDesc;
 
     enum nParallelDims = nDims;
 
-    this(cl_kernel id)
+    this(cl.kernel id)
     {
         this.id = id;
     }
 
-    auto getInfo(cl_kernel_info flag)()
+    auto getInfo(cl.kernel_info flag)()
     {
         return .getInfo!(clGetKernelInfo, flag, KernelInfoEnums)(id);
     }
@@ -448,6 +450,6 @@ struct Kernel(uint nDims, ArgDesc ...)
  * Thread-local status flag. Just for convenience to not have to declare a new one in
  * every function that needs one.
  */
-cl_int status;
+cl.int_ status;
 
 

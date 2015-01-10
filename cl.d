@@ -4,6 +4,25 @@ import derelict.opencl.cl;
 
 import std.typecons : Typedef;
 
+private template RawType(T)
+{
+    import std.traits : hasMember;
+    pragma(msg, T);
+    static if (is(T : U*, U))
+        alias RawType = RawType!(U)*;
+    else static if (is(T : const(U*), U))
+        alias RawType = const(RawType!(U)*);
+    else static if (hasMember!(T, "raw"))
+        alias RawType = typeof(T.raw);
+    else static if (is(T : Typedef!Args, Args...))
+        alias RawType = Args[0];
+    else static if (is(T : const(Typedef!Args), Args...))
+        alias RawType = const(Args[0]);
+    else
+        alias RawType = T;
+}
+
+alias bool_ = cl_bool;
 alias char_   = cl_char;
 alias uchar  = cl_uchar;
 alias short_  = cl_short;
@@ -111,66 +130,71 @@ version(Windows)
     alias dx9_surface_info_khr = cl_dx9_surface_info_khr;
 }
 
-
+private auto toRawType(T)(T v)
+{
+    pragma(msg, "from toRawType: " ~ T.stringof);
+    return cast(RawType!T)v;
+}
 
 int_ getPlatformIDs(uint_ a, platform_id* b, uint_* c) 
 {
     assert(clGetPlatformIDs);
-    return clGetPlatformIDs(a, b, c);
+    return clGetPlatformIDs(a, b.toRawType, c);
 }
     
 int_ getPlatformInfo(platform_id a, platform_info b, size_t c, void* d, size_t* e) 
 {
     assert(clGetPlatformInfo);
-    return clGetPlatformInfo(a, b, c, d, e);
+    return clGetPlatformInfo(a.toRawType, b.toRawType, c, d, e);
 }
     
 int_ getDeviceIDs(platform_id a, device_type b, uint_ c, device_id* d, uint_* e) 
 {
     assert(clGetDeviceIDs);
-    return clGetDeviceIDs(a, b, c, d, e);
+    return clGetDeviceIDs(a.toRawType, b.toRawType, c, d.toRawType, e);
 }
     
 int_ getDeviceInfo(device_id a, device_info b, size_t c, void* d, size_t* e) 
 {
     assert(clGetDeviceInfo);
-    return clGetDeviceInfo(a, b, c, d, e);
+    return clGetDeviceInfo(a.toRawType, b.toRawType, c, d, e);
 }
     
-context createContext(const(context_properties*) a, uint_ b, const(device_id*) c, void* function(const(char*), const(void*), size_t, void*) d, void* e, int_* f) 
+extern(C) alias CreateContextCallback = void function(const(char*), const(void*), size_t, void*);
+context createContext(const(context_properties*) a, uint_ b, const(device_id*) c, CreateContextCallback d, void* e, int_* f) 
 {
     assert(clCreateContext);
-    return clCreateContext(a, b, c, d, e, f);
+    return context(clCreateContext(a.toRawType, b, c.toRawType, d, e, f));
 }
     
-context createContextFromType(const(context_properties*) a, device_type b, void* function(const(char*), const(void*), size_t, void*) c, void* d, int_* e) 
+context createContextFromType(const(context_properties*) a, device_type b, CreateContextCallback c, void* d, int_* e) 
 {
     assert(clCreateContextFromType);
-    return clCreateContextFromType(a, b, c, d, e);
+    return context(clCreateContextFromType(a.toRawType, b.toRawType, c, d, e));
 }
     
 int_ retainContext(context a) 
 {
     assert(clRetainContext);
-    return clRetainContext(a);
+    return clRetainContext(a.toRawType);
 }
     
 int_ releaseContext(context a) 
 {
     assert(clReleaseContext);
-    return clReleaseContext(a);
+    return clReleaseContext(a.toRawType);
 }
     
 int_ getContextInfo(context a, context_info b, size_t c, void* d, size_t* e) 
 {
     assert(clGetContextInfo);
-    return clGetContextInfo(a, b, c, d, e);
+    return clGetContextInfo(a.toRawType, b.toRawType, c, d, e);
 }
     
 command_queue createCommandQueue(context a, device_id b, command_queue_properties c, int_* d) 
 {
     assert(clCreateCommandQueue);
-    return clCreateCommandQueue(a, b, c, d);
+    return clCreateCommandQueue(a.toRawType, b.toRawType, c.toRawType, d).command_queue;
 }
     
 int_ retainCommandQueue(command_queue a) 
@@ -515,7 +539,7 @@ int_ enqueueReadBufferRect(command_queue a, mem b, bool c, const(size_t*) d, con
     return clEnqueueReadBufferRect(a, b, c, d, e, f, g, h, i, j, k, l, m, n);
 }
     
-int_ enqueueWriteBufferRect(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, const(size_t*) f, size_t g, size_t h, size_t i, size_t j, const(void*) k, uint_ l, const(event* r) m, event* n) 
+int_ enqueueWriteBufferRect(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, const(size_t*) f, size_t g, size_t h, size_t i, size_t j, const(void*) k, uint_ l, const(event*) m, event* n) 
 {
     assert(clEnqueueWriteBufferRect);
     return clEnqueueWriteBufferRect(a, b, c, d, e, f, g, h, i, j, k, l, m, n);
@@ -722,436 +746,436 @@ enum : bool_
 
 enum : platform_info
 {
-    PLATFORM_PROFILE                         = 0x0900,
-    PLATFORM_VERSION                         = 0x0901,
-    PLATFORM_NAME                            = 0x0902,
-    PLATFORM_VENDOR                          = 0x0903,
-    PLATFORM_EXTENSIONS                      = 0x0904,
+    PLATFORM_PROFILE                         = platform_info(0x0900),
+    PLATFORM_VERSION                         = platform_info(0x0901),
+    PLATFORM_NAME                            = platform_info(0x0902),
+    PLATFORM_VENDOR                          = platform_info(0x0903),
+    PLATFORM_EXTENSIONS                      = platform_info(0x0904),
+}
+
+enum : device_type
+{
+    DEVICE_TYPE_DEFAULT                      = device_type(1 << 0),
+    DEVICE_TYPE_CPU                          = device_type(1 << 1),
+    DEVICE_TYPE_GPU                          = device_type(1 << 2),
+    DEVICE_TYPE_ACCELERATOR                  = device_type(1 << 3),
+    DEVICE_TYPE_CUSTOM                       = device_type(1 << 4),
+    DEVICE_TYPE_ALL                          = device_type(0xFFFFFFFF),
 }
 
 enum : device_info
 {
-    DEVICE_TYPE_DEFAULT                      = (1 << 0),
-    DEVICE_TYPE_CPU                          = (1 << 1),
-    DEVICE_TYPE_GPU                          = (1 << 2),
-    DEVICE_TYPE_ACCELERATOR                  = (1 << 3),
-    DEVICE_TYPE_CUSTOM                       = (1 << 4),
-    DEVICE_TYPE_ALL                          = 0xFFFFFFFF,
-}
-
-enum : device_info
-{
-    DEVICE_TYPE                              = 0x1000,
-    DEVICE_VENDOR_ID                         = 0x1001,
-    DEVICE_MAX_COMPUTE_UNITS                 = 0x1002,
-    DEVICE_MAX_WORK_ITEM_DIMENSIONS          = 0x1003,
-    DEVICE_MAX_WORK_GROUP_SIZE               = 0x1004,
-    DEVICE_MAX_WORK_ITEM_SIZES               = 0x1005,
-    DEVICE_PREFERRED_VECTOR_WIDTH_CHAR       = 0x1006,
-    DEVICE_PREFERRED_VECTOR_WIDTH_SHORT      = 0x1007,
-    DEVICE_PREFERRED_VECTOR_WIDTH_INT        = 0x1008,
-    DEVICE_PREFERRED_VECTOR_WIDTH_LONG       = 0x1009,
-    DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT      = 0x100A,
-    DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE     = 0x100B,
-    DEVICE_MAX_CLOCK_FREQUENCY               = 0x100C,
-    DEVICE_ADDRESS_BITS                      = 0x100D,
-    DEVICE_MAX_READ_IMAGE_ARGS               = 0x100E,
-    DEVICE_MAX_WRITE_IMAGE_ARGS              = 0x100F,
-    DEVICE_MAX_MEM_ALLOC_SIZE                = 0x1010,
-    DEVICE_IMAGE2D_MAX_WIDTH                 = 0x1011,
-    DEVICE_IMAGE2D_MAX_HEIGHT                = 0x1012,
-    DEVICE_IMAGE3D_MAX_WIDTH                 = 0x1013,
-    DEVICE_IMAGE3D_MAX_HEIGHT                = 0x1014,
-    DEVICE_IMAGE3D_MAX_DEPTH                 = 0x1015,
-    DEVICE_IMAGE_SUPPORT                     = 0x1016,
-    DEVICE_MAX_PARAMETER_SIZE                = 0x1017,
-    DEVICE_MAX_SAMPLERS                      = 0x1018,
-    DEVICE_MEM_BASE_ADDR_ALIGN               = 0x1019,
-    DEVICE_MIN_DATA_TYPE_ALIGN_SIZE          = 0x101A, // Deprecated in OpenCl 1.2
-    DEVICE_SINGLE_FP_CONFIG                  = 0x101B,
-    DEVICE_GLOBAL_MEM_CACHE_TYPE             = 0x101C,
-    DEVICE_GLOBAL_MEM_CACHELINE_SIZE         = 0x101D,
-    DEVICE_GLOBAL_MEM_CACHE_SIZE             = 0x101E,
-    DEVICE_GLOBAL_MEM_SIZE                   = 0x101F,
-    DEVICE_MAX_CONSTANT_BUFFER_SIZE          = 0x1020,
-    DEVICE_MAX_CONSTANT_ARGS                 = 0x1021,
-    DEVICE_LOCAL_MEM_TYPE                    = 0x1022,
-    DEVICE_LOCAL_MEM_SIZE                    = 0x1023,
-    DEVICE_ERROR_CORRECTION_SUPPORT          = 0x1024,
-    DEVICE_PROFILING_TIMER_RESOLUTION        = 0x1025,
-    DEVICE_ENDIAN_LITTLE                     = 0x1026,
-    DEVICE_AVAILABLE                         = 0x1027,
-    DEVICE_COMPILER_AVAILABLE                = 0x1028,
-    DEVICE_EXECUTION_CAPABILITIES            = 0x1029,
-    DEVICE_QUEUE_PROPERTIES                  = 0x102A,
-    DEVICE_NAME                              = 0x102B,
-    DEVICE_VENDOR                            = 0x102C,
-    DRIVER_VERSION                           = 0x102D,
-    DEVICE_PROFILE                           = 0x102E,
-    DEVICE_VERSION                           = 0x102F,
-    DEVICE_EXTENSIONS                        = 0x1030,
-    DEVICE_PLATFORM                          = 0x1031,
-    DEVICE_DOUBLE_FP_CONFIG                  = 0x1032,
+    DEVICE_TYPE                              = device_info(0x1000),
+    DEVICE_VENDOR_ID                         = device_info(0x1001),
+    DEVICE_MAX_COMPUTE_UNITS                 = device_info(0x1002),
+    DEVICE_MAX_WORK_ITEM_DIMENSIONS          = device_info(0x1003),
+    DEVICE_MAX_WORK_GROUP_SIZE               = device_info(0x1004),
+    DEVICE_MAX_WORK_ITEM_SIZES               = device_info(0x1005),
+    DEVICE_PREFERRED_VECTOR_WIDTH_CHAR       = device_info(0x1006),
+    DEVICE_PREFERRED_VECTOR_WIDTH_SHORT      = device_info(0x1007),
+    DEVICE_PREFERRED_VECTOR_WIDTH_INT        = device_info(0x1008),
+    DEVICE_PREFERRED_VECTOR_WIDTH_LONG       = device_info(0x1009),
+    DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT      = device_info(0x100A),
+    DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE     = device_info(0x100B),
+    DEVICE_MAX_CLOCK_FREQUENCY               = device_info(0x100C),
+    DEVICE_ADDRESS_BITS                      = device_info(0x100D),
+    DEVICE_MAX_READ_IMAGE_ARGS               = device_info(0x100E),
+    DEVICE_MAX_WRITE_IMAGE_ARGS              = device_info(0x100F),
+    DEVICE_MAX_MEM_ALLOC_SIZE                = device_info(0x1010),
+    DEVICE_IMAGE2D_MAX_WIDTH                 = device_info(0x1011),
+    DEVICE_IMAGE2D_MAX_HEIGHT                = device_info(0x1012),
+    DEVICE_IMAGE3D_MAX_WIDTH                 = device_info(0x1013),
+    DEVICE_IMAGE3D_MAX_HEIGHT                = device_info(0x1014),
+    DEVICE_IMAGE3D_MAX_DEPTH                 = device_info(0x1015),
+    DEVICE_IMAGE_SUPPORT                     = device_info(0x1016),
+    DEVICE_MAX_PARAMETER_SIZE                = device_info(0x1017),
+    DEVICE_MAX_SAMPLERS                      = device_info(0x1018),
+    DEVICE_MEM_BASE_ADDR_ALIGN               = device_info(0x1019),
+    DEVICE_MIN_DATA_TYPE_ALIGN_SIZE          = device_info(0x101A), // Deprecated in OpenCl 1.2
+    DEVICE_SINGLE_FP_CONFIG                  = device_info(0x101B),
+    DEVICE_GLOBAL_MEM_CACHE_TYPE             = device_info(0x101C),
+    DEVICE_GLOBAL_MEM_CACHELINE_SIZE         = device_info(0x101D),
+    DEVICE_GLOBAL_MEM_CACHE_SIZE             = device_info(0x101E),
+    DEVICE_GLOBAL_MEM_SIZE                   = device_info(0x101F),
+    DEVICE_MAX_CONSTANT_BUFFER_SIZE          = device_info(0x1020),
+    DEVICE_MAX_CONSTANT_ARGS                 = device_info(0x1021),
+    DEVICE_LOCAL_MEM_TYPE                    = device_info(0x1022),
+    DEVICE_LOCAL_MEM_SIZE                    = device_info(0x1023),
+    DEVICE_ERROR_CORRECTION_SUPPORT          = device_info(0x1024),
+    DEVICE_PROFILING_TIMER_RESOLUTION        = device_info(0x1025),
+    DEVICE_ENDIAN_LITTLE                     = device_info(0x1026),
+    DEVICE_AVAILABLE                         = device_info(0x1027),
+    DEVICE_COMPILER_AVAILABLE                = device_info(0x1028),
+    DEVICE_EXECUTION_CAPABILITIES            = device_info(0x1029),
+    DEVICE_QUEUE_PROPERTIES                  = device_info(0x102A),
+    DEVICE_NAME                              = device_info(0x102B),
+    DEVICE_VENDOR                            = device_info(0x102C),
+    DRIVER_VERSION                           = device_info(0x102D),
+    DEVICE_PROFILE                           = device_info(0x102E),
+    DEVICE_VERSION                           = device_info(0x102F),
+    DEVICE_EXTENSIONS                        = device_info(0x1030),
+    DEVICE_PLATFORM                          = device_info(0x1031),
+    DEVICE_DOUBLE_FP_CONFIG                  = device_info(0x1032),
     // 0x1033 reserved for CL_DEVICE_HALF_FP_CONFIG
-    DEVICE_PREFERRED_VECTOR_WIDTH_HALF       = 0x1034,
-    DEVICE_HOST_UNIFIED_MEMORY               = 0x1035,
-    DEVICE_NATIVE_VECTOR_WIDTH_CHAR          = 0x1036,
-    DEVICE_NATIVE_VECTOR_WIDTH_SHORT         = 0x1037,
-    DEVICE_NATIVE_VECTOR_WIDTH_INT           = 0x1038,
-    DEVICE_NATIVE_VECTOR_WIDTH_LONG          = 0x1039,
-    DEVICE_NATIVE_VECTOR_WIDTH_FLOAT         = 0x103A,
-    DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE        = 0x103B,
-    DEVICE_NATIVE_VECTOR_WIDTH_HALF          = 0x103C,
-    DEVICE_OPENCL_C_VERSION                  = 0x103D,
-    DEVICE_LINKER_AVAILABLE                  = 0x103E,
-    DEVICE_BUILT_IN_KERNELS                  = 0x103F,
-    DEVICE_IMAGE_MAX_BUFFER_SIZE             = 0x1040,
-    DEVICE_IMAGE_MAX_ARRAY_SIZE              = 0x1041,
-    DEVICE_PARENT_DEVICE                     = 0x1042,
-    DEVICE_PARTITION_MAX_SUB_DEVICES         = 0x1043,
-    DEVICE_PARTITION_PROPERTIES              = 0x1044,
-    DEVICE_PARTITION_AFFINITY_DOMAIN         = 0x1045,
-    DEVICE_PARTITION_TYPE                    = 0x1046,
-    DEVICE_REFERENCE_COUNT                   = 0x1047,
-    DEVICE_PREFERRED_INTEROP_USER_SYNC       = 0x1048,
-    DEVICE_PRINTF_BUFFER_SIZE                = 0x1049,
+    DEVICE_PREFERRED_VECTOR_WIDTH_HALF       = device_info(0x1034),
+    DEVICE_HOST_UNIFIED_MEMORY               = device_info(0x1035),
+    DEVICE_NATIVE_VECTOR_WIDTH_CHAR          = device_info(0x1036),
+    DEVICE_NATIVE_VECTOR_WIDTH_SHORT         = device_info(0x1037),
+    DEVICE_NATIVE_VECTOR_WIDTH_INT           = device_info(0x1038),
+    DEVICE_NATIVE_VECTOR_WIDTH_LONG          = device_info(0x1039),
+    DEVICE_NATIVE_VECTOR_WIDTH_FLOAT         = device_info(0x103A),
+    DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE        = device_info(0x103B),
+    DEVICE_NATIVE_VECTOR_WIDTH_HALF          = device_info(0x103C),
+    DEVICE_OPENCL_C_VERSION                  = device_info(0x103D),
+    DEVICE_LINKER_AVAILABLE                  = device_info(0x103E),
+    DEVICE_BUILT_IN_KERNELS                  = device_info(0x103F),
+    DEVICE_IMAGE_MAX_BUFFER_SIZE             = device_info(0x1040),
+    DEVICE_IMAGE_MAX_ARRAY_SIZE              = device_info(0x1041),
+    DEVICE_PARENT_DEVICE                     = device_info(0x1042),
+    DEVICE_PARTITION_MAX_SUB_DEVICES         = device_info(0x1043),
+    DEVICE_PARTITION_PROPERTIES              = device_info(0x1044),
+    DEVICE_PARTITION_AFFINITY_DOMAIN         = device_info(0x1045),
+    DEVICE_PARTITION_TYPE                    = device_info(0x1046),
+    DEVICE_REFERENCE_COUNT                   = device_info(0x1047),
+    DEVICE_PREFERRED_INTEROP_USER_SYNC       = device_info(0x1048),
+    DEVICE_PRINTF_BUFFER_SIZE                = device_info(0x1049),
 }
 
 enum : device_fp_config
 {
-    FP_DENORM                                = (1 << 0),
-    FP_INF_NAN                               = (1 << 1),
-    FP_ROUND_TO_NEAREST                      = (1 << 2),
-    FP_ROUND_TO_ZERO                         = (1 << 3),
-    FP_ROUND_TO_INF                          = (1 << 4),
-    FP_FMA                                   = (1 << 5),
-    FP_SOFT_FLOAT                            = (1 << 6),
-    FP_CORRECTLY_ROUNDED_DIVIDE_SQRT         = (1 << 7),
+    FP_DENORM                                = device_fp_config(1 << 0),
+    FP_INF_NAN                               = device_fp_config(1 << 1),
+    FP_ROUND_TO_NEAREST                      = device_fp_config(1 << 2),
+    FP_ROUND_TO_ZERO                         = device_fp_config(1 << 3),
+    FP_ROUND_TO_INF                          = device_fp_config(1 << 4),
+    FP_FMA                                   = device_fp_config(1 << 5),
+    FP_SOFT_FLOAT                            = device_fp_config(1 << 6),
+    FP_CORRECTLY_ROUNDED_DIVIDE_SQRT         = device_fp_config(1 << 7),
 }
 
 enum : device_mem_cache_type
 {
-    NONE                                     = 0x0,
-    READ_ONLY_CACHE                          = 0x1,
-    READ_WRITE_CACHE                         = 0x2,
+    NONE                                     = device_mem_cache_type(0x0),
+    READ_ONLY_CACHE                          = device_mem_cache_type(0x1),
+    READ_WRITE_CACHE                         = device_mem_cache_type(0x2),
 }
 
 enum : device_local_mem_type
 {
-    LOCAL                                    = 0x1,
-    GLOBAL                                   = 0x2,
+    LOCAL                                    = device_local_mem_type(0x1),
+    GLOBAL                                   = device_local_mem_type(0x2),
 }
 
 enum : device_exec_capabilities
 {
-    EXEC_KERNEL                              = (1 << 0),
-    EXEC_NATIVE_KERNEL                       = (1 << 1),
+    EXEC_KERNEL                              = device_exec_capabilities(1 << 0),
+    EXEC_NATIVE_KERNEL                       = device_exec_capabilities(1 << 1),
 }
 
 enum : command_queue_properties
 {
-    QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE      = (1 << 0),
-    QUEUE_PROFILING_ENABLE                   = (1 << 1),
+    QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE      = command_queue_properties(1 << 0),
+    QUEUE_PROFILING_ENABLE                   = command_queue_properties(1 << 1),
 }
 
 enum : context_info
 {
-    CONTEXT_REFERENCE_COUNT                  = 0x1080,
-    CONTEXT_DEVICES                          = 0x1081,
-    CONTEXT_PROPERTIES                       = 0x1082,
-    CONTEXT_NUM_DEVICES                      = 0x1083,
+    CONTEXT_REFERENCE_COUNT                  = context_info(0x1080),
+    CONTEXT_DEVICES                          = context_info(0x1081),
+    CONTEXT_PROPERTIES                       = context_info(0x1082),
+    CONTEXT_NUM_DEVICES                      = context_info(0x1083),
 }
 
 enum : context_properties
 {
-    CONTEXT_PLATFORM                         = 0x1084,
-    CONTEXT_INTEROP_USER_SYNC                = 0x1085,
+    CONTEXT_PLATFORM                         = context_properties(0x1084),
+    CONTEXT_INTEROP_USER_SYNC                = context_properties(0x1085),
 }
 
 enum : device_partition_property
 {
-    DEVICE_PARTITION_EQUALLY                 = 0x1086,
-    DEVICE_PARTITION_BY_COUNTS               = 0x1087,
-    DEVICE_PARTITION_BY_COUNTS_LIST_END      = 0x0,
-    DEVICE_PARTITION_BY_AFFINITY_DOMAIN      = 0x1088,
+    DEVICE_PARTITION_EQUALLY                 = device_partition_property(0x1086),
+    DEVICE_PARTITION_BY_COUNTS               = device_partition_property(0x1087),
+    DEVICE_PARTITION_BY_COUNTS_LIST_END      = device_partition_property(0x0),
+    DEVICE_PARTITION_BY_AFFINITY_DOMAIN      = device_partition_property(0x1088),
 }
 
 enum : device_affinity_domain
 {
-    DEVICE_AFFINITY_DOMAIN_NUMA               = (1 << 0),
-    DEVICE_AFFINITY_DOMAIN_L4_CACHE           = (1 << 1),
-    DEVICE_AFFINITY_DOMAIN_L3_CACHE           = (1 << 2),
-    DEVICE_AFFINITY_DOMAIN_L2_CACHE           = (1 << 3),
-    DEVICE_AFFINITY_DOMAIN_L1_CACHE           = (1 << 4),
-    DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE = (1 << 5),
+    DEVICE_AFFINITY_DOMAIN_NUMA               = device_affinity_domain(1 << 0),
+    DEVICE_AFFINITY_DOMAIN_L4_CACHE           = device_affinity_domain(1 << 1),
+    DEVICE_AFFINITY_DOMAIN_L3_CACHE           = device_affinity_domain(1 << 2),
+    DEVICE_AFFINITY_DOMAIN_L2_CACHE           = device_affinity_domain(1 << 3),
+    DEVICE_AFFINITY_DOMAIN_L1_CACHE           = device_affinity_domain(1 << 4),
+    DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE = device_affinity_domain(1 << 5),
 }
 
 enum : command_queue_info
 {
-    QUEUE_CONTEXT                            = 0x1090,
-    QUEUE_DEVICE                             = 0x1091,
-    QUEUE_REFERENCE_COUNT                    = 0x1092,
-    QUEUE_PROPERTIES                         = 0x1093,
+    QUEUE_CONTEXT                            = command_queue_info(0x1090),
+    QUEUE_DEVICE                             = command_queue_info(0x1091),
+    QUEUE_REFERENCE_COUNT                    = command_queue_info(0x1092),
+    QUEUE_PROPERTIES                         = command_queue_info(0x1093),
 }
 
 enum : mem_flags
 {
-    MEM_READ_WRITE                           = (1 << 0),
-    MEM_WRITE_ONLY                           = (1 << 1),
-    MEM_READ_ONLY                            = (1 << 2),
-    MEM_USE_HOST_PTR                         = (1 << 3),
-    MEM_ALLOC_HOST_PTR                       = (1 << 4),
-    MEM_COPY_HOST_PTR                        = (1 << 5),
+    MEM_READ_WRITE                           = mem_flags((1 << 0)),
+    MEM_WRITE_ONLY                           = mem_flags((1 << 1)),
+    MEM_READ_ONLY                            = mem_flags((1 << 2)),
+    MEM_USE_HOST_PTR                         = mem_flags((1 << 3)),
+    MEM_ALLOC_HOST_PTR                       = mem_flags((1 << 4)),
+    MEM_COPY_HOST_PTR                        = mem_flags((1 << 5)),
 // reserved                                     = (1 << 6),
-    MEM_HOST_WRITE_ONLY                      = (1 << 7),
-    MEM_HOST_READ_ONLY                       = (1 << 8),
-    MEM_HOST_NO_ACCESS                       = (1 << 9),
+    MEM_HOST_WRITE_ONLY                      = mem_flags((1 << 7)),
+    MEM_HOST_READ_ONLY                       = mem_flags((1 << 8)),
+    MEM_HOST_NO_ACCESS                       = mem_flags((1 << 9)),
 }
 
 enum : mem_migration_flags
 {
-    MIGRATE_MEM_OBJECT_HOST                  = (1 << 0),
-    MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED     = (1 << 1),
+    MIGRATE_MEM_OBJECT_HOST                  = mem_migration_flags(1 << 0),
+    MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED     = mem_migration_flags(1 << 1),
 }
 
 enum : channel_order
 {
-    R                                        = 0x10B0,
-    A                                        = 0x10B1,
-    RG                                       = 0x10B2,
-    RA                                       = 0x10B3,
-    RGB                                      = 0x10B4,
-    RGBA                                     = 0x10B5,
-    BGRA                                     = 0x10B6,
-    ARGB                                     = 0x10B7,
-    INTENSITY                                = 0x10B8,
-    LUMINANCE                                = 0x10B9,
-    Rx                                       = 0x10BA,
-    RGx                                      = 0x10BB,
-    RGBx                                     = 0x10BC,
-    DEPTH                                    = 0x10BD,
-    DEPTH_STENCIL                            = 0x10BE,
+    R                                        = channel_order(0x10B0),
+    A                                        = channel_order(0x10B1),
+    RG                                       = channel_order(0x10B2),
+    RA                                       = channel_order(0x10B3),
+    RGB                                      = channel_order(0x10B4),
+    RGBA                                     = channel_order(0x10B5),
+    BGRA                                     = channel_order(0x10B6),
+    ARGB                                     = channel_order(0x10B7),
+    INTENSITY                                = channel_order(0x10B8),
+    LUMINANCE                                = channel_order(0x10B9),
+    Rx                                       = channel_order(0x10BA),
+    RGx                                      = channel_order(0x10BB),
+    RGBx                                     = channel_order(0x10BC),
+    DEPTH                                    = channel_order(0x10BD),
+    DEPTH_STENCIL                            = channel_order(0x10BE),
 }
 
 enum : channel_type
 {
-    SNORM_INT8                               = 0x10D0,
-    SNORM_INT16                              = 0x10D1,
-    UNORM_INT8                               = 0x10D2,
-    UNORM_INT16                              = 0x10D3,
-    UNORM_SHORT_565                          = 0x10D4,
-    UNORM_SHORT_555                          = 0x10D5,
-    UNORM_INT_101010                         = 0x10D6,
-    SIGNED_INT8                              = 0x10D7,
-    SIGNED_INT16                             = 0x10D8,
-    SIGNED_INT32                             = 0x10D9,
-    UNSIGNED_INT8                            = 0x10DA,
-    UNSIGNED_INT16                           = 0x10DB,
-    UNSIGNED_INT32                           = 0x10DC,
-    HALF_FLOAT                               = 0x10DD,
-    FLOAT                                    = 0x10DE,
-    UNORM_INT24                              = 0x10DF,
+    SNORM_INT8                               = channel_type(0x10D0),
+    SNORM_INT16                              = channel_type(0x10D1),
+    UNORM_INT8                               = channel_type(0x10D2),
+    UNORM_INT16                              = channel_type(0x10D3),
+    UNORM_SHORT_565                          = channel_type(0x10D4),
+    UNORM_SHORT_555                          = channel_type(0x10D5),
+    UNORM_INT_101010                         = channel_type(0x10D6),
+    SIGNED_INT8                              = channel_type(0x10D7),
+    SIGNED_INT16                             = channel_type(0x10D8),
+    SIGNED_INT32                             = channel_type(0x10D9),
+    UNSIGNED_INT8                            = channel_type(0x10DA),
+    UNSIGNED_INT16                           = channel_type(0x10DB),
+    UNSIGNED_INT32                           = channel_type(0x10DC),
+    HALF_FLOAT                               = channel_type(0x10DD),
+    FLOAT                                    = channel_type(0x10DE),
+    UNORM_INT24                              = channel_type(0x10DF),
 }
 
 enum : mem_object_type
 {
-    MEM_OBJECT_BUFFER                        = 0x10F0,
-    MEM_OBJECT_IMAGE2D                       = 0x10F1,
-    MEM_OBJECT_IMAGE3D                       = 0x10F2,
-    MEM_OBJECT_IMAGE2D_ARRAY                 = 0x10F3,
-    MEM_OBJECT_IMAGE1D                       = 0x10F4,
-    MEM_OBJECT_IMAGE1D_ARRAY                 = 0x10F5,
-    MEM_OBJECT_IMAGE1D_BUFFER                = 0x10F6,
+    MEM_OBJECT_BUFFER                        = mem_object_type(0x10F0),
+    MEM_OBJECT_IMAGE2D                       = mem_object_type(0x10F1),
+    MEM_OBJECT_IMAGE3D                       = mem_object_type(0x10F2),
+    MEM_OBJECT_IMAGE2D_ARRAY                 = mem_object_type(0x10F3),
+    MEM_OBJECT_IMAGE1D                       = mem_object_type(0x10F4),
+    MEM_OBJECT_IMAGE1D_ARRAY                 = mem_object_type(0x10F5),
+    MEM_OBJECT_IMAGE1D_BUFFER                = mem_object_type(0x10F6),
 }
 
 enum : mem_info
 {
-    MEM_TYPE                                 = 0x1100,
-    MEM_FLAGS                                = 0x1101,
-    MEM_SIZE                                 = 0x1102,
-    MEM_HOST_PTR                             = 0x1103,
-    MEM_MAP_COUNT                            = 0x1104,
-    MEM_REFERENCE_COUNT                      = 0x1105,
-    MEM_CONTEXT                              = 0x1106,
-    MEM_ASSOCIATED_MEMOBJECT                 = 0x1107,
-    MEM_OFFSET                               = 0x1108,
+    MEM_TYPE                                 = mem_info(0x1100),
+    MEM_FLAGS                                = mem_info(0x1101),
+    MEM_SIZE                                 = mem_info(0x1102),
+    MEM_HOST_PTR                             = mem_info(0x1103),
+    MEM_MAP_COUNT                            = mem_info(0x1104),
+    MEM_REFERENCE_COUNT                      = mem_info(0x1105),
+    MEM_CONTEXT                              = mem_info(0x1106),
+    MEM_ASSOCIATED_MEMOBJECT                 = mem_info(0x1107),
+    MEM_OFFSET                               = mem_info(0x1108),
 }
 
 enum : image_info
 {
-    IMAGE_FORMAT                             = 0x1110,
-    IMAGE_ELEMENT_SIZE                       = 0x1111,
-    IMAGE_ROW_PITCH                          = 0x1112,
-    IMAGE_SLICE_PITCH                        = 0x1113,
-    IMAGE_WIDTH                              = 0x1114,
-    IMAGE_HEIGHT                             = 0x1115,
-    IMAGE_DEPTH                              = 0x1116,
-    IMAGE_ARRAY_SIZE                         = 0x1117,
-    IMAGE_BUFFER                             = 0x1118,
-    IMAGE_NUM_MIP_LEVELS                     = 0x1119,
-    IMAGE_NUM_SAMPLES                        = 0x111A,
+    IMAGE_FORMAT                             = image_info(0x1110),
+    IMAGE_ELEMENT_SIZE                       = image_info(0x1111),
+    IMAGE_ROW_PITCH                          = image_info(0x1112),
+    IMAGE_SLICE_PITCH                        = image_info(0x1113),
+    IMAGE_WIDTH                              = image_info(0x1114),
+    IMAGE_HEIGHT                             = image_info(0x1115),
+    IMAGE_DEPTH                              = image_info(0x1116),
+    IMAGE_ARRAY_SIZE                         = image_info(0x1117),
+    IMAGE_BUFFER                             = image_info(0x1118),
+    IMAGE_NUM_MIP_LEVELS                     = image_info(0x1119),
+    IMAGE_NUM_SAMPLES                        = image_info(0x111A),
 }
 
 enum : addressing_mode
 {
-    ADDRESS_NONE                             = 0x1130,
-    ADDRESS_CLAMP_TO_EDGE                    = 0x1131,
-    ADDRESS_CLAMP                            = 0x1132,
-    ADDRESS_REPEAT                           = 0x1133,
-    ADDRESS_MIRRORED_REPEAT                  = 0x1134,
+    ADDRESS_NONE                             = addressing_mode(0x1130),
+    ADDRESS_CLAMP_TO_EDGE                    = addressing_mode(0x1131),
+    ADDRESS_CLAMP                            = addressing_mode(0x1132),
+    ADDRESS_REPEAT                           = addressing_mode(0x1133),
+    ADDRESS_MIRRORED_REPEAT                  = addressing_mode(0x1134),
 }
 
 enum : filter_mode
 {
-    FILTER_NEAREST                           = 0x1140,
-    FILTER_LINEAR                            = 0x1141,
+    FILTER_NEAREST                           = filter_mode(0x1140),
+    FILTER_LINEAR                            = filter_mode(0x1141),
 }
 
 enum : sampler_info
 {
-    SAMPLER_REFERENCE_COUNT                  = 0x1150,
-    SAMPLER_CONTEXT                          = 0x1151,
-    SAMPLER_NORMALIZED_COORDS                = 0x1152,
-    SAMPLER_ADDRESSING_MODE                  = 0x1153,
-    SAMPLER_FILTER_MODE                      = 0x1154,
+    SAMPLER_REFERENCE_COUNT                  = sampler_info(0x1150),
+    SAMPLER_CONTEXT                          = sampler_info(0x1151),
+    SAMPLER_NORMALIZED_COORDS                = sampler_info(0x1152),
+    SAMPLER_ADDRESSING_MODE                  = sampler_info(0x1153),
+    SAMPLER_FILTER_MODE                      = sampler_info(0x1154),
 }
 
 enum : map_flags
 {
-    MAP_READ                                 = (1 << 0),
-    MAP_WRITE                                = (1 << 1),
-    MAP_WRITE_INVALIDATE_REGION              = (1 << 2),
+    MAP_READ                                 = map_flags(1 << 0),
+    MAP_WRITE                                = map_flags(1 << 1),
+    MAP_WRITE_INVALIDATE_REGION              = map_flags(1 << 2),
 }
 
 enum : program_info
 {
-    PROGRAM_REFERENCE_COUNT                  = 0x1160,
-    PROGRAM_CONTEXT                          = 0x1161,
-    PROGRAM_NUM_DEVICES                      = 0x1162,
-    PROGRAM_DEVICES                          = 0x1163,
-    PROGRAM_SOURCE                           = 0x1164,
-    PROGRAM_BINARY_SIZES                     = 0x1165,
-    PROGRAM_BINARIES                         = 0x1166,
-    PROGRAM_NUM_KERNELS                      = 0x1167,
-    PROGRAM_KERNEL_NAMES                     = 0x1168,
+    PROGRAM_REFERENCE_COUNT                  = program_info(0x1160),
+    PROGRAM_CONTEXT                          = program_info(0x1161),
+    PROGRAM_NUM_DEVICES                      = program_info(0x1162),
+    PROGRAM_DEVICES                          = program_info(0x1163),
+    PROGRAM_SOURCE                           = program_info(0x1164),
+    PROGRAM_BINARY_SIZES                     = program_info(0x1165),
+    PROGRAM_BINARIES                         = program_info(0x1166),
+    PROGRAM_NUM_KERNELS                      = program_info(0x1167),
+    PROGRAM_KERNEL_NAMES                     = program_info(0x1168),
 }
 
 enum : program_build_info
 {
-    PROGRAM_BUILD_STATUS                     = 0x1181,
-    PROGRAM_BUILD_OPTIONS                    = 0x1182,
-    PROGRAM_BUILD_LOG                        = 0x1183,
-    PROGRAM_BINARY_TYPE                      = 0x1184,
+    PROGRAM_BUILD_STATUS                     = program_build_info(0x1181),
+    PROGRAM_BUILD_OPTIONS                    = program_build_info(0x1182),
+    PROGRAM_BUILD_LOG                        = program_build_info(0x1183),
+    PROGRAM_BINARY_TYPE                      = program_build_info(0x1184),
 }
 
 enum : program_binary_type
 {
-    PROGRAM_BINARY_TYPE_NONE                 = 0x0,
-    PROGRAM_BINARY_TYPE_COMPILED_OBJECT      = 0x1,
-    PROGRAM_BINARY_TYPE_LIBRARY              = 0x2,
-    PROGRAM_BINARY_TYPE_EXECUTABLE           = 0x4,
+    PROGRAM_BINARY_TYPE_NONE                 = program_binary_type(0x0),
+    PROGRAM_BINARY_TYPE_COMPILED_OBJECT      = program_binary_type(0x1),
+    PROGRAM_BINARY_TYPE_LIBRARY              = program_binary_type(0x2),
+    PROGRAM_BINARY_TYPE_EXECUTABLE           = program_binary_type(0x4),
 }
 
 enum : build_status
 {
-    BUILD_SUCCESS                            =  0,
-    BUILD_NONE                               = -1,
-    BUILD_ERROR                              = -2,
-    BUILD_IN_PROGRESS                        = -3,
+    BUILD_SUCCESS                            = build_status( 0),
+    BUILD_NONE                               = build_status(-1),
+    BUILD_ERROR                              = build_status(-2),
+    BUILD_IN_PROGRESS                        = build_status(-3),
 }
 
 enum : kernel_info
 {
-    KERNEL_FUNCTION_NAME                     = 0x1190,
-    KERNEL_NUM_ARGS                          = 0x1191,
-    KERNEL_REFERENCE_COUNT                   = 0x1192,
-    KERNEL_CONTEXT                           = 0x1193,
-    KERNEL_PROGRAM                           = 0x1194,
-    KERNEL_ATTRIBUTES                        = 0x1195,
+    KERNEL_FUNCTION_NAME                     = kernel_info(0x1190),
+    KERNEL_NUM_ARGS                          = kernel_info(0x1191),
+    KERNEL_REFERENCE_COUNT                   = kernel_info(0x1192),
+    KERNEL_CONTEXT                           = kernel_info(0x1193),
+    KERNEL_PROGRAM                           = kernel_info(0x1194),
+    KERNEL_ATTRIBUTES                        = kernel_info(0x1195),
 }
 
 enum : kernel_arg_info
 {
-    KERNEL_ARG_ADDRESS_QUALIFIER             = 0x1196,
-    KERNEL_ARG_ACCESS_QUALIFIER              = 0x1197,
-    KERNEL_ARG_TYPE_NAME                     = 0x1198,
-    KERNEL_ARG_TYPE_QUALIFIER                = 0x1199,
-    KERNEL_ARG_NAME                          = 0x119A,
+    KERNEL_ARG_ADDRESS_QUALIFIER             = kernel_arg_info(0x1196),
+    KERNEL_ARG_ACCESS_QUALIFIER              = kernel_arg_info(0x1197),
+    KERNEL_ARG_TYPE_NAME                     = kernel_arg_info(0x1198),
+    KERNEL_ARG_TYPE_QUALIFIER                = kernel_arg_info(0x1199),
+    KERNEL_ARG_NAME                          = kernel_arg_info(0x119A),
 }
 
 enum : kernel_arg_address_qualifier
 {
-    KERNEL_ARG_ADDRESS_GLOBAL                = 0x119B,
-    KERNEL_ARG_ADDRESS_LOCAL                 = 0x119C,
-    KERNEL_ARG_ADDRESS_CONSTANT              = 0x119D,
-    KERNEL_ARG_ADDRESS_PRIVATE               = 0x119E,
+    KERNEL_ARG_ADDRESS_GLOBAL                = kernel_arg_address_qualifier(0x119B),
+    KERNEL_ARG_ADDRESS_LOCAL                 = kernel_arg_address_qualifier(0x119C),
+    KERNEL_ARG_ADDRESS_CONSTANT              = kernel_arg_address_qualifier(0x119D),
+    KERNEL_ARG_ADDRESS_PRIVATE               = kernel_arg_address_qualifier(0x119E),
 }
 
 enum : kernel_arg_access_qualifier
 {
-    KERNEL_ARG_ACCESS_READ_ONLY              = 0x11A0,
-    KERNEL_ARG_ACCESS_WRITE_ONLY             = 0x11A1,
-    KERNEL_ARG_ACCESS_READ_WRITE             = 0x11A2,
-    KERNEL_ARG_ACCESS_NONE                   = 0x11A3,
+    KERNEL_ARG_ACCESS_READ_ONLY              = kernel_arg_access_qualifier(0x11A0),
+    KERNEL_ARG_ACCESS_WRITE_ONLY             = kernel_arg_access_qualifier(0x11A1),
+    KERNEL_ARG_ACCESS_READ_WRITE             = kernel_arg_access_qualifier(0x11A2),
+    KERNEL_ARG_ACCESS_NONE                   = kernel_arg_access_qualifier(0x11A3),
 }
 
-enum : kernel_arg_type_qualifer
+enum : kernel_arg_type_qualifier
 {
-    KERNEL_ARG_TYPE_NONE                     = 0,
-    KERNEL_ARG_TYPE_CONST                    = (1 << 0),
-    KERNEL_ARG_TYPE_RESTRICT                 = (1 << 1),
-    KERNEL_ARG_TYPE_VOLATILE                 = (1 << 2),
+    KERNEL_ARG_TYPE_NONE                     = kernel_arg_type_qualifier(0),
+    KERNEL_ARG_TYPE_CONST                    = kernel_arg_type_qualifier(1 << 0),
+    KERNEL_ARG_TYPE_RESTRICT                 = kernel_arg_type_qualifier(1 << 1),
+    KERNEL_ARG_TYPE_VOLATILE                 = kernel_arg_type_qualifier(1 << 2),
 }
 
 enum : kernel_work_group_info
 {
-    KERNEL_WORK_GROUP_SIZE                   = 0x11B0,
-    KERNEL_COMPILE_WORK_GROUP_SIZE           = 0x11B1,
-    KERNEL_LOCAL_MEM_SIZE                    = 0x11B2,
-    KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE= 0x11B3,
-    KERNEL_PRIVATE_MEM_SIZE                  = 0x11B4,
-    KERNEL_GLOBAL_WORK_SIZE                  = 0x11B5,
+    KERNEL_WORK_GROUP_SIZE                   = kernel_work_group_info(0x11B0),
+    KERNEL_COMPILE_WORK_GROUP_SIZE           = kernel_work_group_info(0x11B1),
+    KERNEL_LOCAL_MEM_SIZE                    = kernel_work_group_info(0x11B2),
+    KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE= kernel_work_group_info(0x11B3),
+    KERNEL_PRIVATE_MEM_SIZE                  = kernel_work_group_info(0x11B4),
+    KERNEL_GLOBAL_WORK_SIZE                  = kernel_work_group_info(0x11B5),
 }
 
 enum : event_info
 {
-    EVENT_COMMAND_QUEUE                      = 0x11D0,
-    EVENT_COMMAND_TYPE                       = 0x11D1,
-    EVENT_REFERENCE_COUNT                    = 0x11D2,
-    EVENT_COMMAND_EXECUTION_STATUS           = 0x11D3,
-    EVENT_CONTEXT                            = 0x11D4,
+    EVENT_COMMAND_QUEUE                      = event_info(0x11D0),
+    EVENT_COMMAND_TYPE                       = event_info(0x11D1),
+    EVENT_REFERENCE_COUNT                    = event_info(0x11D2),
+    EVENT_COMMAND_EXECUTION_STATUS           = event_info(0x11D3),
+    EVENT_CONTEXT                            = event_info(0x11D4),
 }
 
 enum : command_type
 {
-    COMMAND_NDRANGE_KERNEL                   = 0x11F0,
-    COMMAND_TASK                             = 0x11F1,
-    COMMAND_NATIVE_KERNEL                    = 0x11F2,
-    COMMAND_READ_BUFFER                      = 0x11F3,
-    COMMAND_WRITE_BUFFER                     = 0x11F4,
-    COMMAND_COPY_BUFFER                      = 0x11F5,
-    COMMAND_READ_IMAGE                       = 0x11F6,
-    COMMAND_WRITE_IMAGE                      = 0x11F7,
-    COMMAND_COPY_IMAGE                       = 0x11F8,
-    COMMAND_COPY_IMAGE_TO_BUFFER             = 0x11F9,
-    COMMAND_COPY_BUFFER_TO_IMAGE             = 0x11FA,
-    COMMAND_MAP_BUFFER                       = 0x11FB,
-    COMMAND_MAP_IMAGE                        = 0x11FC,
-    COMMAND_UNMAP_MEM_OBJECT                 = 0x11FD,
-    COMMAND_MARKER                           = 0x11FE,
-    COMMAND_ACQUIRE_GL_OBJECTS               = 0x11FF,
-    COMMAND_RELEASE_GL_OBJECTS               = 0x1200,
-    COMMAND_READ_BUFFER_RECT                 = 0x1201,
-    COMMAND_WRITE_BUFFER_RECT                = 0x1202,
-    COMMAND_COPY_BUFFER_RECT                 = 0x1203,
-    COMMAND_USER                             = 0x1204,
-    COMMAND_BARRIER                          = 0x1205,
-    COMMAND_MIGRATE_MEM_OBJECTS              = 0x1206,
-    COMMAND_FILL_BUFFER                      = 0x1207,
-    COMMAND_FILL_IMAGE                       = 0x1208,
+    COMMAND_NDRANGE_KERNEL                   = command_type(0x11F0),
+    COMMAND_TASK                             = command_type(0x11F1),
+    COMMAND_NATIVE_KERNEL                    = command_type(0x11F2),
+    COMMAND_READ_BUFFER                      = command_type(0x11F3),
+    COMMAND_WRITE_BUFFER                     = command_type(0x11F4),
+    COMMAND_COPY_BUFFER                      = command_type(0x11F5),
+    COMMAND_READ_IMAGE                       = command_type(0x11F6),
+    COMMAND_WRITE_IMAGE                      = command_type(0x11F7),
+    COMMAND_COPY_IMAGE                       = command_type(0x11F8),
+    COMMAND_COPY_IMAGE_TO_BUFFER             = command_type(0x11F9),
+    COMMAND_COPY_BUFFER_TO_IMAGE             = command_type(0x11FA),
+    COMMAND_MAP_BUFFER                       = command_type(0x11FB),
+    COMMAND_MAP_IMAGE                        = command_type(0x11FC),
+    COMMAND_UNMAP_MEM_OBJECT                 = command_type(0x11FD),
+    COMMAND_MARKER                           = command_type(0x11FE),
+    COMMAND_ACQUIRE_GL_OBJECTS               = command_type(0x11FF),
+    COMMAND_RELEASE_GL_OBJECTS               = command_type(0x1200),
+    COMMAND_READ_BUFFER_RECT                 = command_type(0x1201),
+    COMMAND_WRITE_BUFFER_RECT                = command_type(0x1202),
+    COMMAND_COPY_BUFFER_RECT                 = command_type(0x1203),
+    COMMAND_USER                             = command_type(0x1204),
+    COMMAND_BARRIER                          = command_type(0x1205),
+    COMMAND_MIGRATE_MEM_OBJECTS              = command_type(0x1206),
+    COMMAND_FILL_BUFFER                      = command_type(0x1207),
+    COMMAND_FILL_IMAGE                       = command_type(0x1208),
 }
 
-enum : command_execution_status
+enum : int_
 {
     COMPLETE                                 = 0x0,
     RUNNING                                  = 0x1,
@@ -1161,15 +1185,13 @@ enum : command_execution_status
 
 enum : buffer_create_type
 {
-    BUFFER_CREATE_TYPE_REGION                = 0x1220,
+    BUFFER_CREATE_TYPE_REGION                = buffer_create_type(0x1220),
 }
 
 enum : profiling_info
 {
-    PROFILING_COMMAND_QUEUED                 = 0x1280,
-    PROFILING_COMMAND_SUBMIT                 = 0x1281,
-    PROFILING_COMMAND_START                  = 0x1282,
-    PROFILING_COMMAND_END                    = 0x1283,
+    PROFILING_COMMAND_QUEUED                 = profiling_info(0x1280),
+    PROFILING_COMMAND_SUBMIT                 = profiling_info(0x1281),
+    PROFILING_COMMAND_START                  = profiling_info(0x1282),
+    PROFILING_COMMAND_END                    = profiling_info(0x1283),
 }
-
-
