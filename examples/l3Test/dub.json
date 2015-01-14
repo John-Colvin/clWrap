@@ -1,0 +1,9 @@
+{
+    "name": "l3test",
+    "sourcePaths": ["."],
+    "dependencies": {
+        "clwrap:level3": { "path": "../../" },
+        "clwrap:level2": { "path": "../../" }
+    },
+    "targetType": "executable"
+}

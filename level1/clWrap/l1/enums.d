@@ -1,676 +1,7 @@
-module clWrap.cl;
+module clWrap.l1.enums;
 
 import derelict.opencl.cl;
-
-import std.typecons : Typedef;
-
-private template RawType(T)
-{
-    import std.traits : hasMember;
-    pragma(msg, T);
-    static if (is(T : U*, U))
-        alias RawType = RawType!(U)*;
-    else static if (is(T : const(U*), U))
-        alias RawType = const(RawType!(U)*);
-    else static if (hasMember!(T, "raw"))
-        alias RawType = typeof(T.raw);
-    else static if (is(T : Typedef!Args, Args...))
-        alias RawType = Args[0];
-    else static if (is(T : const(Typedef!Args), Args...))
-        alias RawType = const(Args[0]);
-    else
-        alias RawType = T;
-}
-
-alias bool_ = cl_bool;
-alias char_   = cl_char;
-alias uchar  = cl_uchar;
-alias short_  = cl_short;
-alias ushort_ = cl_ushort;
-alias int_    = cl_int;
-alias uint_   = cl_uint;
-alias long_   = cl_long;
-alias ulong_  = cl_ulong;
-
-alias half   = cl_half;
-alias float_  = cl_float;
-alias double_ = cl_double;
-
-alias GLuint = cl_GLuint;
-alias GLint  = cl_GLint;
-alias GLenum = cl_GLenum;
-
-
-struct   platform_id {   cl_platform_id raw; } 
-struct     device_id {     cl_device_id raw; } 
-struct       context {       cl_context raw; } 
-struct command_queue { cl_command_queue raw; } 
-struct           mem {           cl_mem raw; } 
-struct       program {       cl_program raw; } 
-struct        kernel {        cl_kernel raw; } 
-struct         event {         cl_event raw; } 
-struct       sampler {       cl_sampler raw; } 
-
-
-
-alias device_type                  = Typedef!(cl_device_type, cl_device_type.init, "device_type");
-alias platform_info                = Typedef!(cl_platform_info, cl_platform_info.init, "platform_info");
-alias device_info                  = Typedef!(cl_device_info, cl_device_info.init, "device_info");
-alias device_fp_config             = Typedef!(cl_device_fp_config, cl_device_fp_config.init, "device_fp_config");
-alias device_mem_cache_type        = Typedef!(cl_device_mem_cache_type, cl_device_mem_cache_type.init, "device_mem_cache_type");
-alias device_local_mem_type        = Typedef!(cl_device_local_mem_type, cl_device_local_mem_type.init, "device_local_mem_type");
-alias device_exec_capabilities     = Typedef!(cl_device_exec_capabilities, cl_device_exec_capabilities.init, "device_exec_capabilities");
-alias command_queue_properties     = Typedef!(cl_command_queue_properties, cl_command_queue_properties.init, "command_queue_properties");
-alias device_partition_property    = Typedef!(cl_device_partition_property, cl_device_partition_property.init, "device_partition_property");
-alias device_affinity_domain       = Typedef!(cl_device_affinity_domain, cl_device_affinity_domain.init, "device_affinity_domain");
-
-alias context_properties           = Typedef!(cl_context_properties, cl_context_properties.init, "context_properties");
-alias context_info                 = Typedef!(cl_context_info, cl_context_info.init, "context_info");
-alias command_queue_info           = Typedef!(cl_command_queue_info, cl_command_queue_info.init, "command_queue_info");
-alias channel_order                = Typedef!(cl_channel_order, cl_channel_order.init, "channel_order");
-alias channel_type                 = Typedef!(cl_channel_type, cl_channel_type.init, "channel_type");
-alias mem_flags                    = Typedef!(cl_mem_flags, cl_mem_flags.init, "mem_flags");
-alias mem_object_type              = Typedef!(cl_mem_object_type, cl_mem_object_type.init, "mem_object_type");
-alias mem_info                     = Typedef!(cl_mem_info, cl_mem_info.init, "mem_info");
-alias mem_migration_flags          = Typedef!(cl_mem_migration_flags, cl_mem_migration_flags.init, "mem_migration_flags");
-alias image_info                   = Typedef!(cl_image_info, cl_image_info.init, "image_info");
-alias buffer_create_type           = Typedef!(cl_buffer_create_type, cl_buffer_create_type.init, "buffer_create_type");
-alias addressing_mode              = Typedef!(cl_addressing_mode, cl_addressing_mode.init, "addressing_mode");
-alias filter_mode                  = Typedef!(cl_filter_mode, cl_filter_mode.init, "filter_mode");
-alias sampler_info                 = Typedef!(cl_sampler_info, cl_sampler_info.init, "sampler_info");
-alias map_flags                    = Typedef!(cl_map_flags, cl_map_flags.init, "map_flags");
-alias program_info                 = Typedef!(cl_program_info, cl_program_info.init, "program_info");
-alias program_build_info           = Typedef!(cl_program_build_info, cl_program_build_info.init, "program_build_info");
-alias program_binary_type          = Typedef!(cl_program_binary_type, cl_program_binary_type.init, "program_binary_type");
-alias build_status                 = Typedef!(cl_build_status, cl_build_status.init, "build_status");
-alias kernel_info                  = Typedef!(cl_kernel_info, cl_kernel_info.init, "kernel_info");
-alias kernel_arg_info              = Typedef!(cl_kernel_arg_info, cl_kernel_arg_info.init, "kernel_arg_info");
-alias kernel_arg_address_qualifier = Typedef!(cl_kernel_arg_address_qualifier, cl_kernel_arg_address_qualifier.init, "kernel_arg_address_qualifier");
-alias kernel_arg_access_qualifier  = Typedef!(cl_kernel_arg_access_qualifier, cl_kernel_arg_access_qualifier.init, "kernel_arg_access_qualifier");
-alias kernel_arg_type_qualifier    = Typedef!(cl_kernel_arg_type_qualifier, cl_kernel_arg_type_qualifier.init, "kernel_arg_type_qualifier");
-alias kernel_work_group_info       = Typedef!(cl_kernel_work_group_info, cl_kernel_work_group_info.init, "kernel_work_group_info");
-alias event_info                   = Typedef!(cl_event_info, cl_event_info.init, "event_info");
-alias command_type                 = Typedef!(cl_command_type, cl_command_type.init, "command_type");
-alias profiling_info               = Typedef!(cl_profiling_info, cl_profiling_info.init, "profiling_info");
-
-alias image_format  = cl_image_format;
-alias image_desc    = cl_image_desc;
-alias buffer_region = cl_buffer_region;
-
-alias device_partition_property_ext = Typedef!(cl_device_partition_property_ext, cl_device_partition_property_ext.init, "device_partition_property_ext");
-
-public import derelict.opencl.cl : CLeglImageKHR, CLeglDisplayKHR;
-alias egl_image_properties_khr = Typedef!(cl_egl_image_properties_khr, cl_egl_image_properties_khr.init, "egl_image_properties_khr");
-
-alias gl_object_type = Typedef!(cl_gl_object_type, cl_gl_object_type.init, "gl_object_type");
-alias gl_texture_info = Typedef!(cl_gl_texture_info, cl_gl_texture_info.init, "gl_texture_info");
-alias gl_platform_info = Typedef!(cl_gl_platform_info, cl_gl_platform_info.init, "gl_platform_info");
-
-alias GLsync = cl_GLsync;
-
-alias gl_context_info = Typedef!(cl_gl_context_info, cl_gl_context_info.init, "gl_context_info");
-
-public import derelict.opencl.cl : ID3D10Buffer, ID3D10Texture2D, ID3D10Texture3D;
-
-alias d3d10_device_source_khr = Typedef!(cl_d3d10_device_source_khr, cl_d3d10_device_source_khr.init, "d3d10_device_source_khr");
-alias d3d10_device_set_khr = Typedef!(cl_d3d10_device_set_khr, cl_d3d10_device_set_khr.init, "d3d10_device_set_khr");
-
-public import derelict.opencl.cl : ID3D11Buffer, ID3D11Texture2D, ID3D11Texture3D;
-
-alias d3d11_device_source_khr = Typedef!(cl_d3d11_device_source_khr, cl_d3d11_device_source_khr.init, "d3d11_device_source_khr");
-alias d3d11_device_set_khr = Typedef!(cl_d3d11_device_set_khr, cl_d3d11_device_set_khr.init, "d3d11_device_set_khr");
-
-alias dx9_media_adapter_type_khr = Typedef!(cl_dx9_media_adapter_type_khr, cl_dx9_media_adapter_type_khr.init, "dx9_media_adapter_type_khr");
-alias dx9_media_adapter_set_khr = Typedef!(cl_dx9_media_adapter_set_khr, cl_dx9_media_adapter_set_khr.init, "dx9_media_adapter_set_khr");
-
-version(Windows)
-{
-    public import derelict.opencl.cl : IDirect3DSurface9, HANDLE;
-
-    alias dx9_surface_info_khr = cl_dx9_surface_info_khr;
-}
-
-private auto toRawType(T)(T v)
-{
-    pragma(msg, "from toRawType: " ~ T.stringof);
-    return cast(RawType!T)v;
-}
-
-int_ getPlatformIDs(uint_ a, platform_id* b, uint_* c) 
-{
-    assert(clGetPlatformIDs);
-    return clGetPlatformIDs(a, b.toRawType, c);
-}
-    
-int_ getPlatformInfo(platform_id a, platform_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetPlatformInfo);
-    return clGetPlatformInfo(a.toRawType, b.toRawType, c, d, e);
-}
-    
-int_ getDeviceIDs(platform_id a, device_type b, uint_ c, device_id* d, uint_* e) 
-{
-    assert(clGetDeviceIDs);
-    return clGetDeviceIDs(a.toRawType, b.toRawType, c, d.toRawType, e);
-}
-    
-int_ getDeviceInfo(device_id a, device_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetDeviceInfo);
-    return clGetDeviceInfo(a.toRawType, b.toRawType, c, d, e);
-}
-    
-extern(C) alias CreateContextCallback = void function(const(char*), const(void*), size_t, void*);
-context createContext(const(context_properties*) a, uint_ b, const(device_id*) c, CreateContextCallback d, void* e, int_* f) 
-{
-    assert(clCreateContext);
-    return context(clCreateContext(a.toRawType, b, c.toRawType, d, e, f));
-}
-    
-context createContextFromType(const(context_properties*) a, device_type b, CreateContextCallback c, void* d, int_* e) 
-{
-    assert(clCreateContextFromType);
-    return context(clCreateContextFromType(a.toRawType, b.toRawType, c, d, e));
-}
-    
-int_ retainContext(context a) 
-{
-    assert(clRetainContext);
-    return clRetainContext(a.toRawType);
-}
-    
-int_ releaseContext(context a) 
-{
-    assert(clReleaseContext);
-    return clReleaseContext(a.toRawType);
-}
-    
-int_ getContextInfo(context a, context_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetContextInfo);
-    return clGetContextInfo(a.toRawType, b.toRawType, c, d, e);
-}
-    
-command_queue createCommandQueue(context a, device_id b, command_queue_properties c, int_* d) 
-{
-    assert(clCreateCommandQueue);
-    return clCreateCommandQueue(a.toRawType, b.toRawType, c.toRawType, d).command_queue;
-}
-    
-int_ retainCommandQueue(command_queue a) 
-{
-    assert(clRetainCommandQueue);
-    return clRetainCommandQueue(a);
-}
-    
-int_ releaseCommandQueue(command_queue a) 
-{
-    assert(clReleaseCommandQueue);
-    return clReleaseCommandQueue(a);
-}
-    
-int_ getCommandQueueInfo(command_queue a, command_queue_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetCommandQueueInfo);
-    return clGetCommandQueueInfo(a, b, c, d, e);
-}
-    
-mem createBuffer(context a, mem_flags b, size_t c, void* d, int_* e) 
-{
-    assert(clCreateBuffer);
-    return clCreateBuffer(a, b, c, d, e);
-}
-    
-int_ retainMemObject(mem a) 
-{
-    assert(clRetainMemObject);
-    return clRetainMemObject(a);
-}
-    
-int_ releaseMemObject(mem a) 
-{
-    assert(clReleaseMemObject);
-    return clReleaseMemObject(a);
-}
-    
-int_ getSupportedImageFormats(context a, mem_flags b, mem_object_type c, uint_ d, image_format* e, uint_* f) 
-{
-    assert(clGetSupportedImageFormats);
-    return clGetSupportedImageFormats(a, b, c, d, e, f);
-}
-    
-int_ getMemObjectInfo(mem a, mem_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetMemObjectInfo);
-    return clGetMemObjectInfo(a, b, c, d, e);
-}
-    
-int_ getImageInfo(mem a, image_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetImageInfo);
-    return clGetImageInfo(a, b, c, d, e);
-}
-    
-sampler createSampler(context a, bool b, addressing_mode c, filter_mode d, int_* e) 
-{
-    assert(clCreateSampler);
-    return clCreateSampler(a, b, c, d, e);
-}
-    
-int_ retainSampler(sampler a) 
-{
-    assert(clRetainSampler);
-    return clRetainSampler(a);
-}
-    
-int_ releaseSampler(sampler a) 
-{
-    assert(clReleaseSampler);
-    return clReleaseSampler(a);
-}
-    
-int_ getSamplerInfo(sampler a, sampler_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetSamplerInfo);
-    return clGetSamplerInfo(a, b, c, d, e);
-}
-    
-program createProgramWithSource(context a, uint_ b, const(char*)* c, const(size_t*) d, int_* e) 
-{
-    assert(clCreateProgramWithSource);
-    return clCreateProgramWithSource(a, b, c, d, e);
-}
-    
-program createProgramWithBinary(context a, uint_ b, const(device_id*) c, const(size_t*) d, const(ubyte*)* e, int_* f, int_* g) 
-{
-    assert(clCreateProgramWithBinary);
-    return clCreateProgramWithBinary(a, b, c, d, e, f, g);
-}
-    
-program createProgramWithBuiltInKernels(context a, uint_ b, const(device_id*) c, const(char*) d, int_* e) 
-{
-    assert(clCreateProgramWithBuiltInKernels);
-    return clCreateProgramWithBuiltInKernels(a, b, c, d, e);
-}
-    
-int_ retainProgram(program a) 
-{
-    assert(clRetainProgram);
-    return clRetainProgram(a);
-}
-    
-int_ releaseProgram(program a) 
-{
-    assert(clReleaseProgram);
-    return clReleaseProgram(a);
-}
-    
-int_ buildProgram(program a, uint_ b, const(device_id) c, const(char*) d, void* function(program, void*) e, void* f) 
-{
-    assert(clBuildProgram);
-    return clBuildProgram(a, b, c, d, e, f);
-}
-    
-int_ getProgramInfo(program a, program_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetProgramInfo);
-    return clGetProgramInfo(a, b, c, d, e);
-}
-    
-int_ getProgramBuildInfo(program a, device_id b, program_build_info c, size_t d, void* e, size_t* f) 
-{
-    assert(clGetProgramBuildInfo);
-    return clGetProgramBuildInfo(a, b, c, d, e, f);
-}
-    
-kernel createKernel(program a, const(char*) b, int_* c) 
-{
-    assert(clCreateKernel);
-    return clCreateKernel(a, b, c);
-}
-    
-int_ createKernelsInProgram(program a, uint_ b, kernel* c, uint_* d) 
-{
-    assert(clCreateKernelsInProgram);
-    return clCreateKernelsInProgram(a, b, c, d);
-}
-    
-int_ retainKernel(kernel a) 
-{
-    assert(clRetainKernel);
-    return clRetainKernel(a);
-}
-    
-int_ releaseKernel(kernel a) 
-{
-    assert(clReleaseKernel);
-    return clReleaseKernel(a);
-}
-    
-int_ setKernelArg(kernel a, uint_ b, size_t c, const(void*) d) 
-{
-    assert(clSetKernelArg);
-    return clSetKernelArg(a, b, c, d);
-}
-    
-int_ getKernelInfo(kernel a, kernel_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetKernelInfo);
-    return clGetKernelInfo(a, b, c, d, e);
-}
-    
-int_ getKernelArgInfo(kernel a, uint_ b, kernel_arg_info c, size_t d, void* e, size_t* f) 
-{
-    assert(clGetKernelArgInfo);
-    return clGetKernelArgInfo(a, b, c, d, e, f);
-}
-    
-int_ getKernelWorkGroupInfo(kernel a, device_id b, kernel_work_group_info c, size_t d, void* e, size_t* f) 
-{
-    assert(clGetKernelWorkGroupInfo);
-    return clGetKernelWorkGroupInfo(a, b, c, d, e, f);
-}
-    
-int_ waitForEvents(uint_ a, const(event*) b) 
-{
-    assert(clWaitForEvents);
-    return clWaitForEvents(a, b);
-}
-    
-int_ getEventInfo(event a, event_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetEventInfo);
-    return clGetEventInfo(a, b, c, d, e);
-}
-    
-int_ retainEvent(event a) 
-{
-    assert(clRetainEvent);
-    return clRetainEvent(a);
-}
-    
-int_ releaseEvent(event a) 
-{
-    assert(clReleaseEvent);
-    return clReleaseEvent(a);
-}
-    
-int_ getEventProfilingInfo(event a, profiling_info b, size_t c, void* d, size_t* e) 
-{
-    assert(clGetEventProfilingInfo);
-    return clGetEventProfilingInfo(a, b, c, d, e);
-}
-    
-int_ flush(command_queue a) 
-{
-    assert(clFlush);
-    return clFlush(a);
-}
-    
-int_ finish(command_queue a) 
-{
-    assert(clFinish);
-    return clFinish(a);
-}
-    
-int_ enqueueReadBuffer(command_queue a, mem b, bool c, size_t d, size_t e, void* f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueReadBuffer);
-    return clEnqueueReadBuffer(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueWriteBuffer(command_queue a, mem b, bool c, size_t d, size_t e, const(void*) f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueWriteBuffer);
-    return clEnqueueWriteBuffer(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueCopyBuffer(command_queue a, mem b, mem c, size_t d, size_t e, size_t f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueCopyBuffer);
-    return clEnqueueCopyBuffer(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueReadImage(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, size_t f, size_t g, void* h, uint_ i, const(event*) j, event* k) 
-{
-    assert(clEnqueueReadImage);
-    return clEnqueueReadImage(a, b, c, d, e, f, g, h, i, j, k);
-}
-    
-int_ enqueueWriteImage(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, size_t f, size_t g, const(void*) h, uint_ i, const(event*) j, event* k) 
-{
-    assert(clEnqueueWriteImage);
-    return clEnqueueWriteImage(a, b, c, d, e, f, g, h, i, j, k);
-}
-    
-int_ enqueueCopyImage(command_queue a, mem b, mem c, const(size_t*) d, const(size_t*) e, const(size_t*) f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueCopyImage);
-    return clEnqueueCopyImage(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueCopyImageToBuffer(command_queue a, mem b, mem c, const(size_t*) d, const(size_t*) e, size_t f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueCopyImageToBuffer);
-    return clEnqueueCopyImageToBuffer(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueCopyBufferToImage(command_queue a, mem b, mem c, size_t d, const(size_t*) e, const(size_t*) f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueCopyBufferToImage);
-    return clEnqueueCopyBufferToImage(a, b, c, d, e, f, g, h, i);
-}
-    
-void* enqueueMapBuffer(command_queue a, mem b, bool c, map_flags d, size_t e, size_t f, uint_ g, const(event*) h, event* i, int_* j) 
-{
-    assert(clEnqueueMapBuffer);
-    return clEnqueueMapBuffer(a, b, c, d, e, f, g, h, i, j);
-}
-    
-void* enqueueMapImage(command_queue a, mem b, bool c, map_flags d, const(size_t*) e, const(size_t*) f, size_t* g, size_t* h, uint_ i, const(event*) j, event* k, int_* l) 
-{
-    assert(clEnqueueMapImage);
-    return clEnqueueMapImage(a, b, c, d, e, f, g, h, i, j, k, l);
-}
-    
-int_ enqueueUnmapMemObject(command_queue a, mem b, void* c, uint_ d, const(event*) e, event* f) 
-{
-    assert(clEnqueueUnmapMemObject);
-    return clEnqueueUnmapMemObject(a, b, c, d, e, f);
-}
-    
-int_ enqueueNDRangeKernel(command_queue a, kernel b, uint_ c, const(size_t*) d, const(size_t*) e, const(size_t*) f, uint_ h, const(event*) i, event* j) 
-{
-    assert(clEnqueueNDRangeKernel);
-    return clEnqueueNDRangeKernel(a, b, c, d, e, f, g, h, i, j);
-}
-    
-int_ enqueueTask(command_queue a, kernel b, uint_ c, const(event*) d, event* e) 
-{
-    assert(clEnqueueTask);
-    return clEnqueueTask(a, b, c, d, e);
-}
-    
-int_ enqueueNativeKernel(command_queue a, void* function(void*) b, void* c, size_t d, uint_ e, const(mem*) f, const(void*)* g, uint_ h, const(event*) i, event* j) 
-{
-    assert(clEnqueueNativeKernel);
-    return clEnqueueNativeKernel(a, b, c, d, e, f, g, h, i, j);
-}
-    
-int_ setCommandQueueProperty(command_queue a, command_queue_properties b, bool c, command_queue_properties* d) 
-{
-    assert(clSetCommandQueueProperty);
-    return clSetCommandQueueProperty(a, b, c, d);
-}
-    
-mem createSubBuffer(mem a, mem_flags b, buffer_create_type c, const(void*) d, int_* e)
-{
-    assert(clCreateSubBuffer);
-    return clCreateSubBuffer(a, b, c, d, e);
-}
-    
-int_ setMemObjectDestructorCallback(mem a, void* function(mem, void*) b, void* c) 
-{
-    assert(clSetMemObjectDestructorCallback);
-    return clSetMemObjectDestructorCallback(a, b, c);
-}
-    
-event createUserEvent(context a, int_* b) 
-{
-    assert(clCreateUserEvent);
-    return clCreateUserEvent(a, b);
-}
-    
-int_ setUserEventStatus(event a, int_ b) 
-{
-    assert(clSetUserEventStatus);
-    return clSetUserEventStatus(a, b);
-}
-    
-int_ setEventCallback( event a, int_ b, void* function(event, int_, void*) c, void* d) 
-{
-    assert(clSetEventCallback);
-    return clSetEventCallback(a, b, c, d);
-}
-    
-int_ enqueueReadBufferRect(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, const(size_t*) f, size_t g, size_t h, size_t i, size_t j, void* k, uint_ l, const(event*) m, event* n) 
-{
-    assert(clEnqueueReadBufferRect);
-    return clEnqueueReadBufferRect(a, b, c, d, e, f, g, h, i, j, k, l, m, n);
-}
-    
-int_ enqueueWriteBufferRect(command_queue a, mem b, bool c, const(size_t*) d, const(size_t*) e, const(size_t*) f, size_t g, size_t h, size_t i, size_t j, const(void*) k, uint_ l, const(event*) m, event* n) 
-{
-    assert(clEnqueueWriteBufferRect);
-    return clEnqueueWriteBufferRect(a, b, c, d, e, f, g, h, i, j, k, l, m, n);
-}
-    
-int_ enqueueCopyBufferRect(command_queue a, mem b, mem c, const(size_t*) d, const(size_t*) e, const(size_t*) f, size_t g, size_t h, size_t i, size_t j, uint_ k, const(event*) l, event* m) 
-{
-    assert(clEnqueueCopyBufferRect);
-    return clEnqueueCopyBufferRect(a, b, c, d, e, f, g, h, i, j, k, l, m);
-}
-    
-mem createImage2D(context a, mem_flags b, const(image_format*) c, size_t d, size_t e, size_t f, void* g, int_* h) 
-{
-    assert(clCreateImage2D);
-    return clCreateImage2D(a, b, c, d, e, f, g, h);
-}
-    
-mem createImage3D(context a, mem_flags b, const(image_format*) c, size_t d, size_t e, size_t f, size_t g, size_t h, void* i, int_* j) 
-{
-    assert(clCreateImage3D);
-    return clCreateImage3D(a, b, c, d, e, f, g, h, i, j);
-}
-    
-int_ enqueueMarker(command_queue a, event* b) 
-{
-    assert(clEnqueueMarker);
-    return clEnqueueMarker(a, b);
-}
-    
-int_ enqueueWaitForEvents(command_queue a, uint_ b, const(event*) c) 
-{
-    assert(clEnqueueWaitForEvents);
-    return clEnqueueWaitForEvents(a, b, c);
-}
-    
-int_ enqueueBarrier(command_queue a) 
-{
-    assert(clEnqueueBarrier);
-    return clEnqueueBarrier(a);
-}
-    
-int_ unloadCompiler() 
-{
-    assert(clUnloadCompiler);
-    return clUnloadCompiler();
-}
-    
-void* getExtensionFunctionAddress(const(char*) a)
-{
-    assert(clGetExtensionFunctionAddress);
-    clGetExtensionFunctionAddress(a);
-}
-    
-int_ createSubDevices(device_id a, const(device_partition_property) b, uint_ c, device_id* d, uint_* e) 
-{
-    assert(clCreateSubDevices);
-    return clCreateSubDevices(a, b, c, d, e);
-}
-    
-int_ retainDevice(device_id a) 
-{
-    assert(clRetainDevice);
-    return clRetainDevice(a);
-}
-    
-int_ releaseDevice(device_id a) 
-{
-    assert(clReleaseDevice);
-    return clReleaseDevice(a);
-}
-    
-mem createImage(context a, mem_flags b, const(image_format*) c, const(image_desc*) d, void* e, int_* f) 
-{
-    assert(clCreateImage);
-    return clCreateImage(a, b, c, d, e, f);
-}
-    
-int_ compileProgram(program a, uint_ b, const(device_id*) c, const(char*) d, uint_ e, const(program*) f, const(char*)* g, void* function(program, void*) h, void* i) 
-{
-    assert(clCompileProgram);
-    return clCompileProgram(a, b, c, d, e, f, g, h, i);
-}
-    
-program linkProgram(context a, uint_ b, const(device_id*) c, const(char*) d, uint_ e, const(program*) f, void* function(program, void*) g, void* h, int_* i) 
-{
-    assert(clLinkProgram);
-    return clLinkProgram(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ unloadPlatformCompiler(platform_id a) 
-{
-    assert(clUnloadPlatformCompiler);
-    return clUnloadPlatformCompiler(a);
-}
-    
-int_ enqueueFillBuffer(command_queue a, mem b, const(void*) c, size_t d, size_t e, size_t f, uint_ g, const(event*) h, event* i) 
-{
-    assert(clEnqueueFillBuffer);
-    return clEnqueueFillBuffer(a, b, c, d, e, f, g, h, i);
-}
-    
-int_ enqueueFillImage(command_queue a, mem b, const(void*) c, const(size_t*) d, const(size_t*) e, uint_ f, const(event*) g, event* h) 
-{
-    assert(clEnqueueFillImage);
-    return clEnqueueFillImage(a, b, c, d, e, f, g, h);
-}
-    
-int_ enqueueMigrateMemObjects(command_queue a, uint_ b, const(mem*) c, mem_migration_flags d, uint_ e, const(event*) f, event* g) 
-{
-    assert(clEnqueueMigrateMemObjects);
-    return clEnqueueMigrateMemObjects(a, b, c, d, e, f, g);
-}
-    
-int_ enqueueMarkerWithWaitList(command_queue a, uint_ b, const(event*) c, event* d) 
-{
-    assert(clEnqueueMarkerWithWaitList);
-    return clEnqueueMarkerWithWaitList(a, b, c, d);
-}
-    
-int_ enqueueBarrierWithWaitList(command_queue a, uint_ b, const(event*) c, event* d) 
-{
-    assert(clEnqueueBarrierWithWaitList);
-    return clEnqueueBarrierWithWaitList(a, b, c, d);
-}
-    
-void* getExtensionFunctionAddressForPlatform(platform_id a, const(char*) b) 
-{
-    assert(clGetExtensionFunctionAddressForPlatform);
-    clGetExtensionFunctionAddressForPlatform(a, b);
-}
-
+import clWrap.l1.types;
 
 enum : int_
 {
@@ -1194,4 +525,324 @@ enum : profiling_info
     PROFILING_COMMAND_SUBMIT                 = profiling_info(0x1281),
     PROFILING_COMMAND_START                  = profiling_info(0x1282),
     PROFILING_COMMAND_END                    = profiling_info(0x1283),
+}
+
+// ext.h
+
+// khr_fp16 extension
+enum DEVICE_HALF_FP_CONFIG                   = device_info(0x1033);
+
+// APPLE_SetMemObjectDestructor extension
+enum APPLE_SetMemObjectDestructor            = 1;
+
+// APPLE_ContextLoggingFunctions
+enum APPLE_ContextLoggingFunctions           = 1;
+
+// khr_icd extension
+enum khr_icd                                 = 1;
+// platform_info
+enum PLATFORM_ICD_SUFFIX_KHR                 = platform_info(0x0920);
+// Additional Error Codes
+enum PLATFORM_NOT_FOUND_KHR                  = -1001;
+
+// khr_initalize_memory extension
+enum CONTEXT_MEMORY_INITIALIZE_KHR           = context_properties(0x200E);
+
+// khr_terminate_context extension
+enum khr_terminate_context                   = 1;
+enum
+{
+    DEVICE_TERMINATE_CAPABILITY_KHR          = device_info(0x200F),
+    CONTEXT_TERMINATE_KHR                    = context_properties(0x2010),
+}
+
+// nv_device_attribute_query extension
+enum : device_info
+{
+    DEVICE_COMPUTE_CAPABILITY_MAJOR_NV       = device_info(0x4000),
+    DEVICE_COMPUTE_CAPABILITY_MINOR_NV       = device_info(0x4001),
+    DEVICE_REGISTERS_PER_BLOCK_NV            = device_info(0x4002),
+    DEVICE_WARP_SIZE_NV                      = device_info(0x4003),
+    DEVICE_GPU_OVERLAP_NV                    = device_info(0x4004),
+    DEVICE_KERNEL_EXEC_TIMEOUT_NV            = device_info(0x4005),
+    DEVICE_INTEGRATED_MEMORY_NV              = device_info(0x4006),
+}
+
+// amd_device_attribute_query extension
+enum DEVICE_PROFILING_TIMER_OFFSET_AMD       = device_info(0x4036);
+
+// ext_device_fission extension
+enum ext_device_fission                      = 1;
+
+// device_partition_property_ext extension
+enum
+{
+    DEVICE_PARTITION_EQUALLY_EXT             = 0x4050,
+    DEVICE_PARTITION_BY_COUNTS_EXT           = 0x4051,
+    DEVICE_PARTITION_BY_NAMES_EXT            = 0x4052,
+    DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT  = 0x4053,
+}
+
+// clDeviceGetInfo selectors
+enum
+{
+    DEVICE_PARENT_DEVICE_EXT                 = 0x4054,
+    DEVICE_PARTITION_TYPES_EXT               = 0x4055,
+    DEVICE_AFFINITY_DOMAINS_EXT              = 0x4056,
+    DEVICE_REFERENCE_COUNT_EXT               = 0x4057,
+    DEVICE_PARTITION_STYLE_EXT               = 0x4058,
+}
+
+// error codes
+enum
+{
+    DEVICE_PARTITION_FAILED_EXT              = -1057,
+    INVALID_PARTITION_COUNT_EXT              = -1058,
+    INVALID_PARTITION_NAME_EXT               = -1059,
+}
+
+// AFFINITY_DOMAINs
+enum
+{
+    AFFINITY_DOMAIN_L1_CACHE_EXT             = 0x1,
+    AFFINITY_DOMAIN_L2_CACHE_EXT             = 0x2,
+    AFFINITY_DOMAIN_L3_CACHE_EXT             = 0x3,
+    AFFINITY_DOMAIN_L4_CACHE_EXT             = 0x4,
+    AFFINITY_DOMAIN_NUMA_EXT                 = 0x10,
+    AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT     = 0x100,
+}
+
+// device_partition_property_ext list terminators
+enum
+{
+    PROPERTIES_LIST_END_EXT                  = (cast(device_partition_property_ext) 0),
+    PARTITION_BY_COUNTS_LIST_END_EXT         = (cast(device_partition_property_ext) 0),
+    PARTITION_BY_NAMES_LIST_END_EXT          = (cast(device_partition_property_ext) 0 - 1),
+}
+
+
+// egl.h
+
+// Command type for events created with clEnqueueAcquireEGLObjectsKHR
+enum
+{
+    COMMAND_EGL_FENCE_SYNC_OBJECT_KHR        = 0x202F,
+    COMMAND_ACQUIRE_EGL_OBJECTS_KHR          = 0x202D,
+    COMMAND_RELEASE_EGL_OBJECTS_KHR          = 0x202E,
+}
+
+// Error type for clCreateFromEGLImageKHR
+enum
+{
+    INVALID_EGL_OBJECT_KHR                   = -1093,
+    EGL_RESOURCE_NOT_ACQUIRED_KHR            = -1092,
+}
+
+// khr_egl_image extension
+enum khr_egl_image                           = 1;
+
+// khr_egl_event extension
+enum khr_egl_event                           = 1;
+
+
+// gl.h
+
+// gl_object_type
+enum
+{
+    GL_OBJECT_BUFFER                         = 0x2000,
+    GL_OBJECT_TEXTURE2D                      = 0x2001,
+    GL_OBJECT_TEXTURE3D                      = 0x2002,
+    GL_OBJECT_RENDERBUFFER                   = 0x2003,
+    GL_OBJECT_TEXTURE2D_ARRAY                = 0x200E,
+    GL_OBJECT_TEXTURE1D                      = 0x200F,
+    GL_OBJECT_TEXTURE1D_ARRAY                = 0x2010,
+    GL_OBJECT_TEXTURE_BUFFER                 = 0x2011,
+}
+
+// gl_texture_info
+enum
+{
+    GL_TEXTURE_TARGET                        = 0x2004,
+    GL_MIPMAP_LEVEL                          = 0x2005,
+    GL_NUM_SAMPLES                           = 0x2012,
+}
+
+// Additional Error Codes
+enum INVALID_GL_SHAREGROUP_REFERENCE_KHR     = -1000;
+
+// gl_context_info
+enum
+{
+    CURRENT_DEVICE_FOR_GL_CONTEXT_KHR        = 0x2006,
+    DEVICES_FOR_GL_CONTEXT_KHR               = 0x2007,
+}
+
+// Additional context_properties
+enum
+{
+    GL_CONTEXT_KHR                           = 0x2008,
+    EGL_DISPLAY_KHR                          = 0x2009,
+    GLX_DISPLAY_KHR                          = 0x200A,
+    WGL_HDC_KHR                              = 0x200B,
+    CGL_SHAREGROUP_KHR                       = 0x200C,
+}
+
+// khr_gl_sharing extension
+enum khr_gl_sharing                          = 1;
+
+
+// gl_ext.h
+
+// khr_gl_event extension
+enum COMMAND_GL_FENCE_SYNC_OBJECT_KHR        = 0x200D;
+
+
+// d3d10.h
+
+// khr_d3d10_sharing extension
+enum khr_d3d10_sharing                           = 1;
+
+// Error Codes
+enum
+{
+    INVALID_D3D10_DEVICE_KHR                     = -1002,
+    INVALID_D3D10_RESOURCE_KHR                   = -1003,
+    D3D10_RESOURCE_ALREADY_ACQUIRED_KHR          = -1004,
+    D3D10_RESOURCE_NOT_ACQUIRED_KHR              = -1005,
+}
+
+// d3d10_device_source_nv
+enum
+{
+    D3D10_DEVICE_KHR                             = 0x4010,
+    D3D10_DXGI_ADAPTER_KHR                       = 0x4011,
+}
+
+// d3d10_device_set_nv
+enum
+{
+    PREFERRED_DEVICES_FOR_D3D10_KHR              = 0x4012,
+    ALL_DEVICES_FOR_D3D10_KHR                    = 0x4013,
+}
+
+// context_info
+enum
+{
+    CONTEXT_D3D10_DEVICE_KHR                     = 0x4014,
+    CONTEXT_D3D10_PREFER_SHARED_RESOURCES_KHR    = 0x402C,
+}
+
+// mem_info
+enum MEM_D3D10_RESOURCE_KHR                      = 0x4015;
+
+// image_info
+enum IMAGE_D3D10_SUBRESOURCE_KHR                 = 0x4016;
+
+// command_type
+enum COMMAND_ACQUIRE_D3D10_OBJECTS_KHR           = 0x4017;
+enum COMMAND_RELEASE_D3D10_OBJECTS_KHR           = 0x4018;
+
+
+// d3d11.h
+
+// khr_d3d11_sharing extension
+enum khr_d3d11_sharing = 1;
+
+// Error Codes
+enum
+{
+    INVALID_D3D11_DEVICE_KHR                     = -1006,
+    INVALID_D3D11_RESOURCE_KHR                   = -1007,
+    D3D11_RESOURCE_ALREADY_ACQUIRED_KHR          = -1008,
+    D3D11_RESOURCE_NOT_ACQUIRED_KHR              = -1009,
+}
+
+// d3d11_device_source
+enum
+{
+    D3D11_DEVICE_KHR                             = 0x4019,
+    D3D11_DXGI_ADAPTER_KHR                       = 0x401A,
+}
+
+// d3d11_device_set
+enum
+{
+    PREFERRED_DEVICES_FOR_D3D11_KHR              = 0x401B,
+    ALL_DEVICES_FOR_D3D11_KHR                    = 0x401C,
+}
+
+// context_info
+enum
+{
+    CONTEXT_D3D11_DEVICE_KHR                     = 0x401D,
+    CONTEXT_D3D11_PREFER_SHARED_RESOURCES_KHR    = 0x402D,
+}
+
+// mem_info
+enum MEM_D3D11_RESOURCE_KHR                      = 0x401E;
+
+// image_info
+enum IMAGE_D3D11_SUBRESOURCE_KHR                 = 0x401F;
+
+// command_type
+enum
+{
+    COMMAND_ACQUIRE_D3D11_OBJECTS_KHR            = 0x4020,
+    COMMAND_RELEASE_D3D11_OBJECTS_KHR            = 0x4021,
+}
+
+
+// dx9_media_sharing.h extension
+
+// khr_dx9_media_sharing
+enum khr_dx9_media_sharing                       = 1;
+
+// Error Codes
+enum
+{
+    INVALID_DX9_MEDIA_ADAPTER_KHR                = -1010,
+    INVALID_DX9_MEDIA_SURFACE_KHR                = -1011,
+    DX9_MEDIA_SURFACE_ALREADY_ACQUIRED_KHR       = -1012,
+    DX9_MEDIA_SURFACE_NOT_ACQUIRED_KHR           = -1013,
+}
+
+// media_adapter_type_khr
+enum
+{
+    ADAPTER_D3D9_KHR                             = 0x2020,
+    ADAPTER_D3D9EX_KHR                           = 0x2021,
+    ADAPTER_DXVA_KHR                             = 0x2022,
+}
+
+// media_adapter_set_khr
+enum
+{
+    PREFERRED_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR  = 0x2023,
+    ALL_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR        = 0x2024,
+}
+
+// context_info
+enum
+{
+    CONTEXT_ADAPTER_D3D9_KHR                     = 0x2025,
+    CONTEXT_ADAPTER_D3D9EX_KHR                   = 0x2026,
+    CONTEXT_ADAPTER_DXVA_KHR                     = 0x2027,
+}
+
+// mem_info
+enum
+{
+    MEM_DX9_MEDIA_ADAPTER_TYPE_KHR               = 0x2028,
+    MEM_DX9_MEDIA_SURFACE_INFO_KHR               = 0x2029,
+}
+
+// image_info
+enum IMAGE_DX9_MEDIA_PLANE_KHR                   = 0x202A;
+
+// command_type
+enum
+{
+    COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR       = 0x202B,
+    COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR       = 0x202C,
 }

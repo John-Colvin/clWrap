@@ -5,7 +5,7 @@ import std.algorithm;
 import std.range;
 import std.array;
 
-import clWrap.wrap;
+import clWrap;
 
 //sometimes no need for events that check partial completion for
 //pipes, OpenCL 2.0 has pipes built in.
@@ -48,15 +48,15 @@ struct Task(Queueable, dependencies = DependsOn!())
 
     ArgTypes defaultArgs;
 
-    size_t[2][work.nParallelDims][cl_command_queue] globalRange;
-    size_t[work.nParallelDims][cl_command_queue] localSize;
+    size_t[2][work.nParallelDims][cl.command_queue] globalRange;
+    size_t[work.nParallelDims][cl.command_queue] localSize;
     
     void setArgs(Args...)(Args args)
     {
         defaultArgs = args;
     }
     
-    auto instance(cl_command_queue queue)
+    auto instance(cl.command_queue queue)
     {
         return TaskInstance!(typeof(this))(work,
                 queue,
@@ -106,7 +106,7 @@ template isNativeFunction(alias F)
 
 template isCLKernel(alias F)
 {
-    static if(is(F : Kernel!X, X...))
+    static if(is(F : CLKernel!X, X...))
         enum isCLKernel = true;
     else
         enum isCLKernel = false;
@@ -114,19 +114,19 @@ template isCLKernel(alias F)
 
 struct TaskInstance(TaskT)
 {
-    cl_event[] blockers;
+    cl.event[] blockers;
 
     size_t[2][TaskT.work.nParallelDims] globalRange;
     size_t[TaskT.work.nParallelDims] localSize;
 
     TaskT.ArgTypes args;
 
-    cl_command_queue queue;
+    cl.command_queue queue;
 
     typeof(TaskT.work) work;
 
     this(typeof(TaskT.work) work,
-            cl_command_queue queue,
+            cl.command_queue queue,
             size_t[2][TaskT.work.nParallelDims] globalRange,
             size_t[TaskT.work.nParallelDims] localSize,
             TaskT.ArgTypes args)
@@ -138,28 +138,28 @@ struct TaskInstance(TaskT)
         this.queue = queue;
     }
 
-    cl_event opCall()
+    cl.event opCall()
     {
         return enqueue();
     }
 
-    cl_event opCall(TaskT.ArgTypes args)
+    cl.event opCall(TaskT.ArgTypes args)
     {
         this.args = args;
         return enqueue();
     }
 
-    cl_event enqueue()
+    cl.event enqueue()
     {
-        cl_event ev;
+        cl.event ev;
         static if(isNativeFunction!(typeof(TaskT.work)))
         {
             static assert(false, "not implemented");
         }
         else static if(isCLKernel!(typeof(TaskT.work)))
         {
-            clSetKernelArgs(work, args);
-            clEnqueueCLKernel(queue, work,
+            setKernelArgs(work, args);
+            enqueueCLKernel(queue, work,
                     globalRange[].map!"a[1] - a[0]".array,
                     globalRange[].map!"a[0]".array,
                     localSize[],
@@ -171,13 +171,13 @@ struct TaskInstance(TaskT)
         return ev;
     }
 
-    auto dependsOn(cl_event[] events)
+    auto dependsOn(cl.event[] events)
     {
         blockers ~= events;
         return this;
     }
 
-    auto dependsOn(cl_event event)
+    auto dependsOn(cl.event event)
     {
         blockers ~= event;
         return this;

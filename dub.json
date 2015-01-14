@@ -1,12 +1,43 @@
 {
-    "name": "clwrap-test",
-
-    "sourcePaths": ["."],
-
-    "targetType": "executable",
-
-    "dependencies": {
-        "derelict_extras-opencl": ">=1.2.0",
-        "derelict-gl3": ">=1.0.10"
-    }
+    "name": "clWrap",
+    "subPackages": [
+        {
+            "name": "level1",
+            "dependencies": {
+                "derelict-cl": ">=1.2.1"
+            },
+            "sourcePaths": ["level1"],
+            "importPaths": ["level1"],
+            "targetType": "library",
+        },
+        {
+            "name": "level2",
+            "dependencies": {
+                "clwrap:level1": { "path": "./" },
+                "derelict-gl3": ">=1.0.11"
+            },
+            "sourcePaths": ["level2"],
+            "importPaths": ["level2"],
+            "targetType": "library"
+        },
+        {
+            "name": "level3",
+            "dependencies": {
+                "clwrap:level1": { "path": "./" },
+                "clwrap:level2": { "path": "./" }
+            },
+            "sourcePaths": ["level3"],
+            "importPaths": ["level3"],
+            "targetType": "library"
+        },
+        {
+            "name": "bindgen",
+            "dependencies": {
+                "libdparse": ">=0.1.1"
+            },
+            "sourcePaths": ["bindGen"],
+            "targetType": "executable",
+            "targetName": "genFunctions"
+        },
+    ]
 }

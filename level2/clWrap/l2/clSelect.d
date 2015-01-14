@@ -1,6 +1,8 @@
-module clWrap.clSelect;
+module clWrap.l2.clSelect;
 
-import clWrap.wrap;
+import clWrap.l2.wrap;
+import clWrap.l2.info;
+
 import std.file;
 import std.process;
 import std.path : buildPath, dirName;
@@ -9,16 +11,17 @@ import std.exception;
 import std.typecons;
 import std.string;
 import std.conv;
+import std.stdio : stdout;
 
 immutable string[] configFileNames;
 shared static this()
 {
     configFileNames = [
-        buildPath([getcwd(), "chirpletCLConfig"]),
+        buildPath([getcwd(), "clWrapConfig"]),
         buildPath(
                 [environment.get("XDG_CONFIG_HOME",
                     buildPath([environment.get("HOME"), ".config"])),
-                "chirpletCLConfig"])
+                "clWrapConfig"])
     ];
 }
 
@@ -34,13 +37,17 @@ auto readConfig(string configFileName = null)
 {
     foreach(fileName; [configFileName] ~ configFileNames)
     {
+        stdout.write("Attempting to read config file: ", fileName);
         if(fileName.exists && fileName.isFile)
         {
+            scope(success) stdout.writeln("  success");
             auto cText = readText(fileName);
             cText.findSkip(":").enforce();
             cText.findSkip("\"").enforce();
             return cText.until("\"");
         }
+        else
+            stdout.writeln("  not found");
     }
     throw new Exception("No config file found");
 }
@@ -55,7 +62,7 @@ auto getChosenPlatform()
 
     foreach(platform; platforms)
     {
-        if(platform.getInfo!CL_PLATFORM_NAME
+        if(platform.getInfo!(cl.PLATFORM_NAME)
                 .indexOf(name, CaseSensitive.no) != -1)
         {
             return platform;
