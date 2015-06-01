@@ -5,7 +5,8 @@ public static import cl = clWrap.cl;
 public import derelict.opencl.cl : CLVersion;
 
 import derelict.opengl3.gl3;
-import std.exception, std.range, std.conv, std.traits, std.string, std.typecons;
+import std.exception, std.range, std.conv,
+       std.algorithm, std.traits, std.string, std.typecons;
 debug import std.stdio;
 import clWrap.l2.errors, clWrap.l2.info, clWrap.l2.util;
 
@@ -352,16 +353,11 @@ struct CLProgram
     {
         this.id = id;
     }
-/+
-    auto getBuildInfo(cl.program_build_info flag)(cl.device_id device)
+
+    auto getBuildInfo(cl.program_build_info flag)(cl.device_id[] devices ...)
     {
-        auto buildInfo(Args ...)(Args args)
-        {
-            return clGetProgramBuildInfo(args[0], device, args[1..$]);
-        }
-        return .getInfo!(buildInfo, flag, programBuildInfoEnums)(id);
+        
     }
-+/
 }
 
 
@@ -389,21 +385,21 @@ cl.program buildProgram(cl.program program, cl.device_id[] devices = null, const
     cl.buildProgram(program,
             devices.length.to!uint, devices.ptr, options.toStringz(), null, null)
         .clEnforce({
-                if(devices.empty)
+                if(devices is null)
                 {
                     size_t nDevices = CLProgram(program).getInfo!(cl.PROGRAM_NUM_DEVICES);
                     devices = new cl.device_id[nDevices];
                     cl.getProgramInfo(program, cl.PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
                 }
-                auto buildLogs = new ubyte[][devices.length];
+                auto buildLogs = new char[][devices.length];
                 foreach(i, dev; devices)
                 {
                     size_t len;
                     cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, 0, null, &len);
-                    buildLogs[i] = new ubyte[len];
+                    buildLogs[i] = new char[len];
                     cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, buildLogs[i].memSize, buildLogs[i].ptr, null);
                 }
-                return (cast(char[][])buildLogs).join("\n\n");
+                return buildLogs.join("\n\n");
             }());
     return program;
 }

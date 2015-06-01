@@ -4,7 +4,8 @@ import clWrap.l2.errors;
 import clWrap.l2.wrap;
 import clWrap.cl;
 
-import std.typetuple, std.traits;
+import std.traits;
+import std.typetuple : Arguments = TypeTuple;
 
 /+
 template getInfo(alias F)
@@ -18,7 +19,7 @@ template getInfo(flag_...)
     enum flag = flag_[0];
     auto getInfo(T)(T obj)
     {
-        alias EARTGroups = TypeTuple!(GetEARTs!T);
+        alias EARTGroups = Arguments!(GetEARTs!T);
         
         foreach (Group; EARTGroups)
         {
@@ -28,24 +29,24 @@ template getInfo(flag_...)
                 static if(eart.v == flag)
                 {
                     auto id = obj.id;
-                    static if(is(eart.T == char[]))
+                    static if(hasMember!(eart, "handler"))
+                    {
+                        auto value = handler(obj);
+                    }
+                    else static if(is(eart.T : U[], U))
                     {
                         size_t size;
                         F(id, flag, 0, null, &size)
                             .clEnforce();
-                        auto value = new char[size];
+                        assert(size % U.sizeof == 0);
+                        eart.T value;
+                        value.length = size / U.sizeof;
                         F(id, flag, size, value.ptr, null)
                             .clEnforce();
                     }
                     else static if(isStaticArray!(eart.T))
                     {
                         eart.T value;
-                        F(id, flag, value.memSize, value.ptr, null)
-                            .clEnforce();
-                    }
-                    else static if(isArray!(eart.T))
-                    {
-                        auto value = eart.handler(id);
                         F(id, flag, value.memSize, value.ptr, null)
                             .clEnforce();
                     }
@@ -81,17 +82,19 @@ template GetEARTs(T)
     else static if (is(T : CLSampler))
         alias GetEARTs = samplerInfoEnums;+/
     else static if (is(T : CLProgram))
-        alias GetEARTs = TypeTuple!(programInfoEnums, programBuildInfoEnums);
+        alias GetEARTs = Arguments!(programInfoEnums, programBuildInfoEnums);
     else static if (is(T : CLKernel))
-        alias GetEARTs = TypeTuple!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
+        alias GetEARTs = Arguments!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
     else static if (is(T : CLEvent))
-        alias GetEARTs = TypeTuple!(eventInfoEnums, eventProfilingInfoEnums);
+        alias GetEARTs = Arguments!(eventInfoEnums, eventProfilingInfoEnums);
 }
 
-private struct EnumAndReturnType(alias v_, T_, alias handler = null)
+private struct EnumAndReturnType(alias v_, T_, alias handler_ = null)
 {
     alias v = v_;
     alias T = T_;
+    static if(!is(typeof(handler_) == typeof(null)))
+        alias handler = handler_;
 }
 
 private alias EART = EnumAndReturnType;
@@ -119,7 +122,7 @@ alias platformInfoEnums = EARTGroup!(getPlatformInfo,
 
 alias deviceInfoEnums = EARTGroup!(getDeviceInfo,
         EART!(DEVICE_ADDRESS_BITS, uint),
-        EART!(DEVICE_AFFINITY_DOMAINS_EXT, device_partition_property_ext[]), //special case
+        EART!(DEVICE_AFFINITY_DOMAINS_EXT, device_partition_property_ext[]),
         EART!(DEVICE_AVAILABLE, bool),
         EART!(DEVICE_BUILT_IN_KERNELS, char[]),
         EART!(DEVICE_COMPILER_AVAILABLE, bool),
@@ -160,7 +163,7 @@ alias deviceInfoEnums = EARTGroup!(getDeviceInfo,
         EART!(DEVICE_MAX_SAMPLERS, uint),
         EART!(DEVICE_MAX_WORK_GROUP_SIZE, size_t),
         EART!(DEVICE_MAX_WORK_ITEM_DIMENSIONS, uint),
-        EART!(DEVICE_MAX_WORK_ITEM_SIZES, size_t[]), //special case
+        EART!(DEVICE_MAX_WORK_ITEM_SIZES, size_t[]),
         EART!(DEVICE_MAX_WRITE_IMAGE_ARGS, uint),
         EART!(DEVICE_MEM_BASE_ADDR_ALIGN, uint),
         EART!(DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, uint),
@@ -175,12 +178,12 @@ alias deviceInfoEnums = EARTGroup!(getDeviceInfo,
         EART!(DEVICE_OPENCL_C_VERSION, char[]),
         EART!(DEVICE_PARENT_DEVICE, device_id),
         EART!(DEVICE_PARENT_DEVICE_EXT, device_id),
-        EART!(DEVICE_PARTITION_AFFINITY_DOMAIN, device_affinity_domain[]), //special case
+        EART!(DEVICE_PARTITION_AFFINITY_DOMAIN, device_affinity_domain[]),
         EART!(DEVICE_PARTITION_MAX_SUB_DEVICES, uint),
-        EART!(DEVICE_PARTITION_PROPERTIES, device_partition_property[]), //special case
-        EART!(DEVICE_PARTITION_STYLE_EXT, device_partition_property_ext[]), //special case
-        EART!(DEVICE_PARTITION_TYPE, device_partition_property[]), //special case
-        EART!(DEVICE_PARTITION_TYPES_EXT, device_partition_property_ext[]), //special case
+        EART!(DEVICE_PARTITION_PROPERTIES, device_partition_property[]),
+        EART!(DEVICE_PARTITION_STYLE_EXT, device_partition_property_ext[]),
+        EART!(DEVICE_PARTITION_TYPE, device_partition_property[]),
+        EART!(DEVICE_PARTITION_TYPES_EXT, device_partition_property_ext[]),
         EART!(DEVICE_PLATFORM, platform_id),
         EART!(DEVICE_PREFERRED_INTEROP_USER_SYNC, bool),
         EART!(DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, uint),
@@ -209,7 +212,7 @@ alias deviceInfoEnums = EARTGroup!(getDeviceInfo,
 
 alias contextInfoEnums = EARTGroup!(getContextInfo,
         EART!(CONTEXT_REFERENCE_COUNT, uint),
-        EART!(CONTEXT_DEVICES, device_id[]), //special case
+        EART!(CONTEXT_DEVICES, device_id[]),
         EART!(CONTEXT_PROPERTIES, context_properties[]),
         EART!(CONTEXT_NUM_DEVICES, uint),
 //        EART!(CONTEXT_D3D10_PREFER_SHARED_RESOURCES_KHR, bool),
@@ -261,10 +264,26 @@ alias programInfoEnums = EARTGroup!(getProgramInfo,
         EART!(PROGRAM_REFERENCE_COUNT, uint),
         EART!(PROGRAM_CONTEXT, context),
         EART!(PROGRAM_NUM_DEVICES, uint),
-        EART!(PROGRAM_DEVICES, device_id[]), //special case
+        EART!(PROGRAM_DEVICES, device_id[]),
         EART!(PROGRAM_SOURCE, char[]),
-        EART!(PROGRAM_BINARY_SIZES, size_t[]), //special case
-        EART!(PROGRAM_BINARIES, ubyte[][]), //special case
+        EART!(PROGRAM_BINARY_SIZES, size_t[]),
+        EART!(PROGRAM_BINARIES, ubyte[][], (obj)
+            {
+                //Good god I hate the openCL API...
+                auto sizes = obj.getInfo!PROGRAM_BINARY_SIZES;
+                auto buffs = new ubyte[][sizes.length];
+                //use the first half of buffs for the pointers
+                auto buffPtrs = (cast(ubyte**)buffs.ptr)[0..sizes.length];
+                foreach(i, ref buffPtr; buffPtrs)
+                    buffPtr = (new ubyte[sizes[i]]).ptr;
+                getProgramInfo(obj.id, PROGRAM_BINARIES,
+                        buffPtrs.length, buffPtrs.ptr, null).clEnforce();
+                foreach_reverse(i; 0..sizes.length)
+                {//intersperse the lengths, from last to first.
+                    buffs[i] = buffPtrs[i][0 .. sizes[i]];
+                }
+                return buffs;
+            }),
         EART!(PROGRAM_NUM_KERNELS, size_t),
         EART!(PROGRAM_KERNEL_NAMES, char[]));
 
@@ -282,7 +301,7 @@ alias kernelInfoEnums = EARTGroup!(getKernelInfo,
         EART!(KERNEL_PROGRAM, program),
         EART!(KERNEL_ATTRIBUTES, char[]));
 
-alias kernelArgInfoEnums =EARTGroup!(getKernelArgInfo,
+alias kernelArgInfoEnums = EARTGroup!(getKernelArgInfo,
         EART!(KERNEL_ARG_ADDRESS_QUALIFIER, kernel_arg_address_qualifier),
         EART!(KERNEL_ARG_ACCESS_QUALIFIER, kernel_arg_access_qualifier),
         EART!(KERNEL_ARG_TYPE_NAME, char[]),

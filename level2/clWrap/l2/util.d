@@ -2,6 +2,8 @@ module clWrap.l2.util;
 
 import std.range;
 
+//deal with arrays seperately, in part to avoid any
+//narrow-string idiocy
 @property auto memSize(R)(R r)
     if (is(R : T[], T))
 {
@@ -15,9 +17,4 @@ import std.range;
     if(isInputRange!R && hasLength!R && !is(R : T[], T))
 {
     return r.length * (ElementType!R).sizeof;
-}
-
-template Pack(TL ...)
-{
-    alias Unpack = TL;
 }
