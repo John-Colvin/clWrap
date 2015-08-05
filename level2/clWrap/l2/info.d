@@ -67,25 +67,25 @@ template getInfo(flag_...)
 
 template GetEARTs(T)
 {
-    static if (is(T : CLQueue))
+    static if (is(T : cl.queue))
         alias GetEARTs = queueInfoEnums;
-    else static if (is(T : CLPlatform))
+    else static if (is(T : cl.platform))
         alias GetEARTs = platformInfoEnums;
-    else static if (is(T : CLDevice))
+    else static if (is(T : cl.device))
         alias GetEARTs = deviceInfoEnums;
-    else static if (is(T : CLContext))
+    else static if (is(T : cl.context))
         alias GetEARTs = contextInfoEnums;
     else static if (is(T : CLBuffer!X, X))
         alias GetEARTs = memObjectInfoEnums;
-/+    else static if (is(T : CLImage))
+    else static if (is(T : CLImage))
         alias GetEARTs = imageInfoEnums;
-    else static if (is(T : CLSampler))
-        alias GetEARTs = samplerInfoEnums;+/
-    else static if (is(T : CLProgram))
+    else static if (is(T : cl.sampler))
+        alias GetEARTs = samplerInfoEnums;
+    else static if (is(T : cl.program))
         alias GetEARTs = Arguments!(programInfoEnums, programBuildInfoEnums);
-    else static if (is(T : CLKernel))
+    else static if (is(T : cl.kernel))
         alias GetEARTs = Arguments!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
-    else static if (is(T : CLEvent))
+    else static if (is(T : cl.event))
         alias GetEARTs = Arguments!(eventInfoEnums, eventProfilingInfoEnums);
 }
 
