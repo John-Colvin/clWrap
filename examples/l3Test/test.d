@@ -37,8 +37,8 @@ void main()
 {
     DerelictCL.load();
     auto platform = getChosenPlatform();
-    DerelictCL.reload(platform.version_);
-    platform.version_.writeln();
+    DerelictCL.reload(platform.getVersion());
+    platform.getVersion.writeln();
     auto devices = getDevices(platform);
     auto context = createContext(devices);
     devices.map!(d => d.getInfo!(cl.DEVICE_NAME)).writeln;
@@ -59,8 +59,7 @@ void main()
     status.clEnforce();
 
     pragma(msg, typeof(cl.MEM_READ_WRITE));
-    auto devBuff = CLBuffer!float(context,
-            cl.MEM_READ_WRITE | cl.MEM_COPY_HOST_PTR,
+    auto devBuff = context.newBuffer(cl.MEM_READ_WRITE | cl.MEM_COPY_HOST_PTR,
             iota(110).array.to!(float[])
             );
 

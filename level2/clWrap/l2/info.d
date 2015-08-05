@@ -17,7 +17,7 @@ template getInfo(flag_...)
     if (flag_.length == 1)
 {
     enum flag = flag_[0];
-    auto getInfo(T)(T obj)
+    auto getInfo(T)(T id)
     {
         alias EARTGroups = Arguments!(GetEARTs!T);
         
@@ -28,10 +28,9 @@ template getInfo(flag_...)
             {
                 static if(eart.v == flag)
                 {
-                    auto id = obj.id;
                     static if(hasMember!(eart, "handler"))
                     {
-                        auto value = handler(obj);
+                        auto value = eart.handler(id);
                     }
                     else static if(is(eart.T : U[], U))
                     {
@@ -67,25 +66,25 @@ template getInfo(flag_...)
 
 template GetEARTs(T)
 {
-    static if (is(T : CLQueue))
+    static if (is(T : cl.command_queue))
         alias GetEARTs = queueInfoEnums;
-    else static if (is(T : CLPlatform))
+    else static if (is(T : cl.platform_id))
         alias GetEARTs = platformInfoEnums;
-    else static if (is(T : CLDevice))
+    else static if (is(T : cl.device_id))
         alias GetEARTs = deviceInfoEnums;
-    else static if (is(T : CLContext))
+    else static if (is(T : cl.context))
         alias GetEARTs = contextInfoEnums;
     else static if (is(T : CLBuffer!X, X))
         alias GetEARTs = memObjectInfoEnums;
-/+    else static if (is(T : CLImage))
+    else static if (is(T : CLImage!X, X))
         alias GetEARTs = imageInfoEnums;
-    else static if (is(T : CLSampler))
-        alias GetEARTs = samplerInfoEnums;+/
-    else static if (is(T : CLProgram))
+    else static if (is(T : cl.sampler))
+        alias GetEARTs = samplerInfoEnums;
+    else static if (is(T : cl.program))
         alias GetEARTs = Arguments!(programInfoEnums, programBuildInfoEnums);
-    else static if (is(T : CLKernel))
+    else static if (is(T : cl.kernel))
         alias GetEARTs = Arguments!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
-    else static if (is(T : CLEvent))
+    else static if (is(T : cl.event))
         alias GetEARTs = Arguments!(eventInfoEnums, eventProfilingInfoEnums);
 }
 
