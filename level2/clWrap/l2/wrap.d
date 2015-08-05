@@ -95,31 +95,37 @@ struct CLBuffer(T)
     alias buffer this;
 }
 
-CLBuffer!T newBuffer(cl.context context, cl.mem_flags flags, AT data)
+CLBuffer!AT newBuffer(AT)(cl.context context, cl.mem_flags flags, AT data)
     if(isArray!AT)
 {
-    debug writeln("new buffer, type: ", T.stringof,
+    debug writeln("new buffer, type: ", AT.stringof,
             " data.length: ", data.length, " data.memSize: ", data.memSize);
     
-    buffer = cl.createBuffer(context, flags, data.memSize, data.ptr, &status);
+    auto buffer = cl.createBuffer(context, flags, data.memSize, data.ptr, &status);
     status.clEnforce();
 
-    return CLBuffer!T(buffer);
+    return CLBuffer!AT(buffer);
 }
 
-CLBuffer!T newBuffer(cl.context context, cl.mem_flags, size_t length)
+CLBuffer!T newBuffer(T)(cl.context context, cl.mem_flags flags, size_t length)
 {
     debug writeln("new buffer, type: ", T.stringof,
             " length: ", length, " memSize: ", length * T.sizeof);
     
     cl.int_ status;
-    buffer = cl.createBuffer(context, flags, length * T.sizeof, null, &status);
+    auto buffer = cl.createBuffer(context, flags, length * T.sizeof, null, &status);
     status.clEnforce();
 
     return CLBuffer!T(buffer);
 }
 
-CLVersion getVersion(cl.platform id)
+struct CLImage(T)
+{
+    cl.mem image;
+    alias image this;
+}
+
+CLVersion getVersion(cl.platform_id id)
 {
     size_t platformInfoSize;
     cl.getPlatformInfo(id, cl.PLATFORM_VERSION, 0, null, &platformInfoSize)
@@ -187,7 +193,7 @@ in
     assert(devices.length != 0);
     cl.platform_id platform = devices[0].getInfo!(cl.DEVICE_PLATFORM);
     foreach(device; devices[1 .. $])
-        assert(CLDevice(device).getInfo!(cl.DEVICE_PLATFORM) == platform);
+        assert(device.getInfo!(cl.DEVICE_PLATFORM) == platform);
 }
 body
 {
@@ -202,7 +208,7 @@ body
                 null, null, &status);
 }
 
-auto contextPropertyList(Args...)(ref Args args)
+auto contextPropertyList(Args...)(Args args)
 {
     cl.context_properties[Args.length + 1] props;
     foreach(i, arg; args)
@@ -245,7 +251,7 @@ cl.program buildProgram(cl.program program, cl.device_id[] devices = null, const
         .clEnforce({
                 if(devices is null)
                 {
-                    size_t nDevices = CLProgram(program).getInfo!(cl.PROGRAM_NUM_DEVICES);
+                    size_t nDevices = program.getInfo!(cl.PROGRAM_NUM_DEVICES);
                     devices = new cl.device_id[nDevices];
                     cl.getProgramInfo(program, cl.PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
                 }

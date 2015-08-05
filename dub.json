@@ -1,5 +1,5 @@
 {
-    "name": "clWrap",
+    "name": "clwrap",
     "subPackages": [
         {
             "name": "level1",
