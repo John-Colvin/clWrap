@@ -2,7 +2,7 @@ import std.algorithm, std.traits, std.uni, std.conv,
        std.range, std.array, std.exception, std.string,
        std.stdio;
 import std.file : readText;
-import std.d.lexer, std.d.parser, std.d.ast, std.d.formatter;
+import dparse.lexer, dparse.parser, dparse.ast, dparse.formatter;
 
 //import clWrap.types;;
 

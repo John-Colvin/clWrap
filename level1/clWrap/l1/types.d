@@ -36,7 +36,7 @@ struct     device_id
 struct       context
 {
     cl_context raw;
-    auto opCast(T : void*)() { pragma(msg, __traits(compiles, cast(T)raw)); return cast(T)raw; }
+    auto opCast(T : void*)() { return cast(T)raw; }
 }
 
 struct command_queue

@@ -1,0 +1,8 @@
+{
+    "name": "l2test",
+    "sourcePaths": ["."],
+    "dependencies": {
+        "clwrap:level2": { "path": "../../" }
+    },
+    "targetType": "executable"
+}

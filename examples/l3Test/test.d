@@ -9,7 +9,7 @@ import std.algorithm;
 import std.conv;
 import std.stdio;
 
-static immutable string kernelA = 
+static immutable string kernelA =
 `
 __kernel
 void someKernel(__global float* input, float b)
@@ -21,7 +21,7 @@ void someKernel(__global float* input, float b)
 }
 `;
 
-static immutable string kernelB = 
+static immutable string kernelB =
 `
 __kernel
 void someOtherKernel(__global float* input, uint a)
@@ -46,7 +46,7 @@ void main()
     auto queue = createCommandQueue(context, devices[1]);/*,
             OUT_OF_ORDER_EXEC);*/
 
-    auto program = createProgramFromSource(context, [kernelA, kernelB])
+    auto program = createProgramFromSource(context, kernelA, kernelB)
         .buildProgram();
 
     auto someKernel = CLKernel!(2, cl.mem, float)(
@@ -58,7 +58,6 @@ void main()
             );
     status.clEnforce();
 
-    pragma(msg, typeof(cl.MEM_READ_WRITE));
     auto devBuff = context.newBuffer(cl.MEM_READ_WRITE | cl.MEM_COPY_HOST_PTR,
             iota(110).array.to!(float[])
             );
@@ -86,11 +85,11 @@ void main()
             t1Ev = task1.instance(queue).dependsOn(t2Ev)(devBuff, i);
 
         auto task2i = task2.instance(queue);
-        
+
         if(i & 1) task2i.args[1] = 3;
 
         task2i.dependsOn(t1Ev);
-        
+
         t2Ev = task2i.enqueue();
     }
 
