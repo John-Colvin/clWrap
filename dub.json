@@ -33,11 +33,18 @@
         {
             "name": "bindgen",
             "dependencies": {
-                "libdparse": ">=0.1.1"
+                "libdparse": ">=0.1.1",
+                "derelict-cl": ">=1.2.1"
             },
             "sourcePaths": ["bindGen"],
             "targetType": "executable",
-            "targetName": "genFunctions"
+            "targetName": "genFunctions",
+            "preGenerateCommands": [
+                "printf 'auto input = \"$DERELICT_CL_PACKAGE_DIR/source/derelict/opencl/functions.d\";\nauto output = \"level1/clWrap/l1/functions.d\";' > bindGen/input_output.d"
+            ],
+            "postBuildCommands": [
+                "rm bindGen/input_output.d"
+            ]
         },
     ]
 }
