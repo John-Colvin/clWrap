@@ -57,6 +57,9 @@ auto readConfig(string configFileName = null)
  */
 auto getChosenPlatform()
 {
+    import derelict.opencl.cl : DerelictCL;
+    DerelictCL.load();
+
     auto name = readConfig().to!string;
     auto platforms = getPlatforms();
 
@@ -65,6 +68,7 @@ auto getChosenPlatform()
         if(platform.getInfo!(cl.PLATFORM_NAME)
                 .indexOf(name, CaseSensitive.no) != -1)
         {
+            DerelictCL.reload(platform.getVersion());
             return platform;
         }
     }
