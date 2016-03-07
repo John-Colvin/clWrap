@@ -121,9 +121,8 @@ body
 /**
  * Use this instead of raw cl.mem buffers for stricter typing and better
  * introspection opportunities.
- * `AT` should be an array type
  */
-struct CLBuffer(AT)
+struct CLBuffer(T)
 {
     cl.mem buffer;
     alias buffer this;
@@ -132,8 +131,7 @@ struct CLBuffer(AT)
 /**
  * create a new buffer from given data, see clCreateBuffer
  */
-CLBuffer!AT newBuffer(AT)(cl.context context, cl.mem_flags flags, AT data)
-    if(isArray!AT)
+CLBuffer!T newBuffer(T)(cl.context context, cl.mem_flags flags, T[] data)
 {
     //debug writeln("new buffer, type: ", AT.stringof,
     //        " data.length: ", data.length, " data.memSize: ", data.memSize);
@@ -141,7 +139,7 @@ CLBuffer!AT newBuffer(AT)(cl.context context, cl.mem_flags flags, AT data)
     auto buffer = cl.createBuffer(context, flags, data.memSize, data.ptr, &status);
     status.clEnforce();
 
-    return CLBuffer!AT(buffer);
+    return CLBuffer!T(buffer);
 }
 
 /**
@@ -354,7 +352,7 @@ if (isInstanceOf!(CLProgram, Program))
 }
 
 /**
- * 
+ *
  */
 // TODO: use getKernelArgInfo to validate name & ArgTypes
 struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
@@ -363,9 +361,34 @@ struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
 
     enum name = kernelName;
 
-    alias ArgTypes = ArgDesc;
+    import std.typecons : Tuple;
+    private alias TupleT = Tuple!ArgDesc;
+    alias ArgTypes = TupleT.Types;
+    alias ArgNames = TupleT.fieldNames;
 
     enum nParallelDims = nDims;
+
+    this(R)(R r)
+    if (is(ElementType!R : dchar))
+    {
+        import std.utf, std.string, std.meta;
+        enum argStr = roundRobin([staticMap!(clCName, ArgTypes)], repeat(" "),
+                    [ArgNames]).chunks(2).joiner([", "]).join();
+        r = r.stripLeft;
+        if (r.startsWith("__kernel"))
+            source = r.to!string;
+        else
+            source = `__kernel void ` ~ name ~ `(` ~ argStr ~ `){` ~
+                r.to!string ~ `}`;
+    }
+}
+
+private template clCName(T)
+{
+    static if (is(T == CLBuffer!Q, Q))
+        enum clCName = Q.stringof ~ `*`;
+    else
+        enum clCName = T.stringof;
 }
 
 alias isKernelDef(T) = isInstanceOf!(CLKernelDef, T);
