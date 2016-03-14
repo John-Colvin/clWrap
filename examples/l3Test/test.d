@@ -1,77 +1,58 @@
 import clWrap;
 import clWrap.task;
 
-import derelict.opencl.cl : DerelictCL;
-
 import std.typecons : tuple;
 import std.range;
 import std.algorithm;
 import std.conv;
 import std.stdio;
 
-static immutable string kernelA =
-`
-__kernel
-void someKernel(__global float* input, float b)
-{
-    size_t i = get_global_id(0);
-    size_t j = get_global_id(1);
+auto kernelDefA = CLKernelDef!("kernelA", 2,
+        CLBuffer!float, "input", float, "b")
+(q{
+    size_t idx = get_global_id(0) * get_global_size(1) + get_global_id(1);
 
-    input[i + j] = exp(cos(b));
-}
-`;
+    input[idx] += exp(cos(b));
+});
 
-static immutable string kernelB =
-`
-__kernel
-void someOtherKernel(__global float* input, uint a)
-{
-    size_t i = get_global_id(0);
-    size_t j = get_global_id(1);
+auto kernelDefB = CLKernelDef!("kernelB", 2,
+        CLBuffer!float, "input", uint, "a")
+(q{
+    size_t idx = get_global_id(0) * get_global_size(1) + get_global_id(1);
 
-    input[i + j] = sqrt(input[i + j] + a);
-}
-`;
+    input[idx] += sqrt(input[idx] + a);
+});
 
 void main()
 {
-    DerelictCL.load();
     auto platform = getChosenPlatform();
-    DerelictCL.reload(platform.getVersion());
-    platform.getVersion.writeln();
-    auto devices = getDevices(platform);
-    auto context = createContext(devices);
-    devices.map!(d => d.getInfo!(cl.DEVICE_NAME)).writeln;
-    devices.writeln;
-    auto queue = createCommandQueue(context, devices[1]);/*,
+
+    auto devices = platform.getDevices(cl.DEVICE_TYPE_GPU);
+    devices.map!(getInfo!(cl.DEVICE_NAME)).writeln;
+
+    auto context = devices.createContext();
+
+    auto queue = createCommandQueue(context, devices[0]);/*,
             OUT_OF_ORDER_EXEC);*/
 
-    auto program = createProgramFromSource(context, kernelA, kernelB)
-        .buildProgram();
+    auto kernels = context.createProgram(kernelDefA, kernelDefB)
+        .buildProgram.createKernel!("kernelA", "kernelB");
+    auto kernelA = kernels[0];
+    auto kernelB = kernels[1];
 
-    auto someKernel = CLKernel!(2, cl.mem, float)(
-            cl.createKernel(program, "someKernel", &status)
-            );
-    status.clEnforce();
-    auto someOtherKernel = CLKernel!(2, cl.mem, uint)(
-            cl.createKernel(program, "someOtherKernel", &status)
-            );
-    status.clEnforce();
+    auto input = iota(1_024 * 10_240).map!(to!float).array;
+    auto devBuff = context.newBuffer(cl.MEM_COPY_HOST_PTR, input);
 
-    auto devBuff = context.newBuffer(cl.MEM_READ_WRITE | cl.MEM_COPY_HOST_PTR,
-            iota(110).array.to!(float[])
-            );
+    auto task1 = task(kernelA);
+    auto task2 = task(kernelB);
 
-    auto task1 = task(someKernel);
-    auto task2 = task(someOtherKernel);
-
-    task1.globalRange[queue] = [[0, 100], [0, 10]];
-    task1.localSize[queue] = [20, 1];
+    task1.globalRange[queue] = [[0, 1024], [0, 10_240]];
+    task1.localSize[queue] = [8, 64];
 
     task1.defaultArgs[0] = devBuff;
 
-    task2.globalRange[queue] = [[0, 100], [0, 10]];
-    task2.localSize[queue] = [20, 1];
+    task2.globalRange[queue] = [[0, 1024], [0, 10_240]];
+    task2.localSize[queue] = [8, 64];
 
     task2.defaultArgs = tuple(devBuff, 4);
 
@@ -93,8 +74,5 @@ void main()
         t2Ev = task2i.enqueue();
     }
 
-    auto someMemory = new float[110];
-    queue.read(devBuff, someMemory, true, 0, [t2Ev]);
-
-    writeln(someMemory);
+    queue.read(devBuff, input, Yes.Blocking, 0, [t2Ev]);
 }

@@ -158,7 +158,7 @@ struct TaskInstance(TaskT)
         }
         else static if(isCLKernel!(typeof(TaskT.work)))
         {
-            setKernelArgs(work, args);
+            setArgs(work, args);
             enqueueCLKernel(queue, work,
                     globalRange[].map!"a[1] - a[0]".array,
                     globalRange[].map!"a[0]".array,

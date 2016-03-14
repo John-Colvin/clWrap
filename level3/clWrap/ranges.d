@@ -1,3 +1,7 @@
+
+import std.typecons : Flag;
+import clWrap;
+
 string clType(T)()
 {
     static if (is(T == CLBuff!(X[]), X) | is(T == CLImage!(X[]), X))
@@ -14,19 +18,58 @@ if (is(Args[0] == CLKernelDef!X, X) || is(Args[0] == CLKernel!X, X))
     clBegin!Yes.Blocking(args);
 }
 
-auto clBegin(Flag!"Blocking" blocking = No.Blocking, Args ...)(const(char)[] source, Args args)
+struct Named(string name_, T)
 {
-    CLKernelDef!(2, Args)(
-            `__kernel void(` ~ [staticMap!(CLType, Args)].joiner(",")
-          ~ ")\n{\n" ~ source ~ "\n}"
-    ).clBegin!blocking;
+    enum name = name_;
+    alias Type = T;
+    T val;
+}
+
+auto named(string name, T)(T val)
+{
+    return Named!name(val);
+}
+
+enum isNamed(T) = isInstanceOf!(Named, T);
+
+template GetName(T)
+if (isNamed!T)
+{
+    enum GetName = T.name;
+}
+
+enum GetName(alias a) = __traits(identifier, a);
+
+template GetType(T)
+if (isNamed!T)
+{
+    alias GetType = T.Type;
+}
+
+alias GetType(alias a) = typeof(a);
+
+//pass aliases
+template clBegin(Params ...)
+{
+    // could support things other than Named with some default naming scheme
+    auto clBegin(Flag!"Blocking" blocking = No.Blocking, Args ...)(const(char)[] source, Args args)
+    if (allSatisfy!(isNamed, Args))
+    {
+        alias names = staticMap!(GetName, AliasSeq!(Params, Args));
+        alias types = staticMap!(GetType, AliasSeq!(Params, Args));
+
+        CLKernelDef!
+
+        CLKernelDef!(2, Args)(source).clBegin!blocking;
+    }
 }
 
 auto clBegin(Flag!"Blocking" blocking = No.Blocking, KernelDefT, Args ...)(KernelDefT kernelDef, Args args)
 {
     context.createProgram(kernelDef)
-         .buildProgram
-         .clBegin!blocking;
+    .buildProgram
+    .createKernel!(KernelDefT.name)
+    .clBegin!blocking;
 }
 
 auto clBegin(Flag!"Blocking" blocking = No.Blocking, KernelT, Args ...)(KernelT kernel, Args args)
@@ -37,8 +80,8 @@ auto clBegin(Flag!"Blocking" blocking = No.Blocking, KernelT, Args ...)(KernelT 
 
 struct CLSetup
 {
-    cl.platform platform;
-    cl.device[] devices;
+    cl.platform_id platform;
+    cl.device_id[] devices;
     cl.context context;
     cl.command_queue queue;
 }
@@ -48,9 +91,10 @@ CLSetup defaultSetup;
 static this()
 {
     defaultSetup.platform  = getChosenPlatform();
-    defaultSetup.devices = platform.getDevices(cl.DEVICE_TYPE_GPU);
-    defaultSetup.context = devices.createContext();
-    defaultSetup.queue = context.createCommandQueue(devices[0]);
+    defaultSetup.devices = defaultSetup.platform.getDevices(cl.DEVICE_TYPE_GPU);
+    defaultSetup.context = defaultSetup.devices.createContext();
+    defaultSetup.queue = defaultSetup.context.
+        createCommandQueue(defaultSetup.devices[0]);
 }
 
 auto clWith(Foo)(CLSetup setup, Foo foo)
@@ -62,13 +106,13 @@ if (isCallable!Foo)
     return foo();
 }
 
-private alias isSetupMember(T) = is(T : cl.platform) || is(T : cl.device[])
+private enum isSetupMember(T) = is(T : cl.platform) || is(T : cl.device[])
     || is(T : cl.context) || is(T : cl.command_queue);
 
 //TODO: how useful is this really? Does it actually make sense to
 //change these independently
 auto clWith(Args ...)(Args args)
-static if (Args.length > 1 && isCallable!(Args[$-1])
+if (Args.length > 1 && isCallable!(Args[$-1])
     && allSatisfy!(isSetupMember, Args[0 .. $-1]))
 {
     CLSetup setup = defaultSetup;
