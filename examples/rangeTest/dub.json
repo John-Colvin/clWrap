@@ -1,0 +1,8 @@
+{
+    "name": "rangeTest",
+    "sourcePaths": ["."],
+    "dependencies": {
+        "clwrap:level3": { "path": "../../" }
+    },
+    "targetType": "executable"
+}

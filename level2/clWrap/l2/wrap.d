@@ -5,7 +5,7 @@ public static import cl = clWrap.cl;
 public import derelict.opencl.cl : CLVersion;
 
 import derelict.opengl3.gl3;
-import std.exception, std.range, std.conv,
+import std.exception, std.range, std.conv, std.meta,
        std.algorithm, std.traits, std.string, std.typecons;
 debug import std.stdio;
 import clWrap.l2.errors, clWrap.l2.info, clWrap.l2.util;
@@ -43,7 +43,7 @@ struct LocalBuffer
 }
 
 /**
- * Use as a positional argument to setKernelArgs to denote that you
+ * Use as a positional argument to setArgs to denote that you
  * don't want to change that argument
  */
 struct NoChange{}
@@ -121,9 +121,8 @@ body
 /**
  * Use this instead of raw cl.mem buffers for stricter typing and better
  * introspection opportunities.
- * `AT` should be an array type
  */
-struct CLBuffer(AT)
+struct CLBuffer(T)
 {
     cl.mem buffer;
     alias buffer this;
@@ -132,8 +131,7 @@ struct CLBuffer(AT)
 /**
  * create a new buffer from given data, see clCreateBuffer
  */
-CLBuffer!AT newBuffer(AT)(cl.context context, cl.mem_flags flags, AT data)
-    if(isArray!AT)
+CLBuffer!T newBuffer(T)(cl.context context, cl.mem_flags flags, T[] data)
 {
     //debug writeln("new buffer, type: ", AT.stringof,
     //        " data.length: ", data.length, " data.memSize: ", data.memSize);
@@ -141,7 +139,7 @@ CLBuffer!AT newBuffer(AT)(cl.context context, cl.mem_flags flags, AT data)
     auto buffer = cl.createBuffer(context, flags, data.memSize, data.ptr, &status);
     status.clEnforce();
 
-    return CLBuffer!AT(buffer);
+    return CLBuffer!T(buffer);
 }
 
 /**
@@ -286,7 +284,8 @@ cl.context_properties[Args.length + 1] contextPropertyList(Args...)(Args args)
 auto createCommandQueue(cl.context context, cl.device_id device, cl.command_queue_properties properties = 0)
 {
     scope(exit) status.clEnforce(
-            "call: 'cl.createCommandQueue(" ~ text(context) ~ ", " ~ text(device) ~ ", " ~ text(properties) ~ '\'');
+            "call: 'cl.createCommandQueue(" ~ text(context) ~ ", " ~ text(device) ~ ", " ~ text(properties) ~ ")\'");
+
     return cl.createCommandQueue(context, device, properties, &status);
 }
 
@@ -315,7 +314,9 @@ cl.program createProgram(cl.context context, const(char)[][] sources)
 
 auto createProgram(KernelDefs ...)(cl.context context, KernelDefs kernelDefs)
 {
-    return CLProgram!KernelDefs(.createProgram(context, [kernelDefs].map!"a.source".array));
+    const(char)[][KernelDefs.length] sources;
+    foreach(i, kernel; kernelDefs) sources[i] = kernel.source;
+    return CLProgram!KernelDefs(.createProgram(context, sources));
 }
 
 /**
@@ -354,7 +355,7 @@ if (isInstanceOf!(CLProgram, Program))
 }
 
 /**
- * 
+ *
  */
 // TODO: use getKernelArgInfo to validate name & ArgTypes
 struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
@@ -363,9 +364,36 @@ struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
 
     enum name = kernelName;
 
-    alias ArgTypes = ArgDesc;
+    import std.typecons : Tuple;
+    private alias TupleT = Tuple!ArgDesc;
+    alias ArgTypes = TupleT.Types;
+    alias ArgNames = TupleT.fieldNames;
 
     enum nParallelDims = nDims;
+
+    this(R)(R r)
+    if (is(ElementType!R : dchar))
+    {
+        import std.utf, std.string, std.meta;
+        enum argStr = roundRobin([staticMap!(clCName, ArgTypes)],
+                    repeat(" ", ArgTypes.length),
+                    [ArgNames])
+            .chunks(3).joiner([", "]).join();
+        r = r.stripLeft;
+        if (r.startsWith("__kernel"))
+            source = r.to!string;
+        else
+            source = `__kernel void ` ~ name ~ `(` ~ argStr ~ `){` ~
+                r.to!string ~ `}`;
+    }
+}
+
+private template clCName(T)
+{
+    static if (is(T == CLBuffer!Q, Q))
+        enum clCName = `__global ` ~ Q.stringof ~ `*`;
+    else
+        enum clCName = T.stringof;
 }
 
 alias isKernelDef(T) = isInstanceOf!(CLKernelDef, T);
@@ -409,17 +437,39 @@ if (allSatisfy!(isKernelDef, KernelDefs))
     }
 }
 
-auto createKernel(string name, Program)(Program program)
-if (isInstanceOf!(CLProgram, Program))
+template createKernel(names ...)
+if (names.length != 0 && allSatisfy!(isSomeString, typeof(names)))
 {
-    enum hasName(T) = T.name == name;
-    import std.meta : Filter;
-    alias KernelsWithName = Filter!(hasName, Program.KernelTypes);
-    static assert(KernelsWithName.length == 1, "Found multiple kernels with name \"" ~ name ~ "\"");
-    alias Kernel = KernelsWithName[0];
-    //TODO: are template argument strings guaranteed to be 0-terminated?
-    scope(exit) status.clEnforce();
-    return Kernel(cl.createKernel(program, name.toStringz, &status));
+    static if (names.length == 1)
+    {
+        enum name = names[0];
+        auto createKernel(Program)(Program program)
+        if (isInstanceOf!(CLProgram, Program))
+        {
+            enum hasName(T) = T.name == name;
+            import std.meta : Filter;
+            alias KernelsWithName = Filter!(hasName, Program.KernelTypes);
+            static assert(KernelsWithName.length == 1, "Found multiple kernels with name \"" ~ name ~ "\"");
+            alias Kernel = KernelsWithName[0];
+            //TODO: are template argument strings guaranteed to be 0-terminated?
+            scope(exit) status.clEnforce();
+            return Kernel(cl.createKernel(program, name.toStringz, &status));
+        }
+    }
+    else
+    {
+        auto createKernel(Program)(Program program)
+        if (isInstanceOf!(CLProgram, Program))
+        {
+            //TODO: Name the members
+            Tuple!(Program.KernelTypes) res;
+            foreach(i, name; names)
+            {
+                res[i] = .createKernel!name(program);
+            }
+            return res;
+        }
+    }
 }
 
 auto createAllKernels(Program)(Program program)
