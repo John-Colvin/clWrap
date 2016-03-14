@@ -13,7 +13,6 @@ auto someKernelDef = CLKernelDef!("someKernel", 2,
 
 void main()
 {
-    writeln(someKernelDef.source);
     auto platform = getChosenPlatform();
 
     auto devices = platform.getDevices(cl.DEVICE_TYPE_GPU);

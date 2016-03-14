@@ -5,7 +5,7 @@ import clWrap.l2.wrap;
 import clWrap.cl;
 
 import std.traits;
-import std.typetuple : Arguments = TypeTuple;
+import std.meta;
 
 /+
 template getInfo(alias F)
@@ -13,50 +13,21 @@ template getInfo(alias F)
     alias getInfo(uint flag) = .getInfo!(F, flag);
 }+/
 
-template getInfo(flag_...)
-    if (flag_.length == 1)
+template getInfo(alias flag)
 {
-    enum flag = flag_[0];
-    auto getInfo(T)(T id)
+    auto getInfo(T, Args...)(T id, Args args)
     {
-        alias EARTGroups = Arguments!(GetEARTs!T);
-        
-        foreach (Group; EARTGroups)
+        foreach (Group; GetEARTs!T)
         {
             alias F = Group.F;
             foreach (eart; Group.EARTs)
             {
-                static if(eart.v == flag)
+                static if(eart.flag == flag)
                 {
                     static if(hasMember!(eart, "handler"))
-                    {
-                        auto value = eart.handler(id);
-                    }
-                    else static if(is(eart.T : U[], U))
-                    {
-                        size_t size;
-                        F(id, flag, 0, null, &size)
-                            .clEnforce();
-                        assert(size % U.sizeof == 0);
-                        eart.T value;
-                        value.length = size / U.sizeof;
-                        F(id, flag, size, value.ptr, null)
-                            .clEnforce();
-                    }
-                    else static if(isStaticArray!(eart.T))
-                    {
-                        eart.T value;
-                        F(id, flag, value.memSize, value.ptr, null)
-                            .clEnforce();
-                    }
+                        return eart.handler(id, args);
                     else
-                    {
-                        eart.T value;
-                        F(id, flag, typeof(value).sizeof, &value, null)
-                            .clEnforce();
-                    }
-                    
-                    return value;
+                        return getInfoGeneric!(eart.ReturnT, F, flag)(id);
                 }
             }
         }
@@ -64,34 +35,69 @@ template getInfo(flag_...)
     }
 }
 
+auto getInfoGeneric(ReturnT, alias F, alias flag, T)(T id)
+{
+    static if(is(ReturnT : U[], U))
+        return getArrayInfo!(U, F, flag)(id);
+    else static if(isStaticArray!(ReturnT))
+        return getStaticArrayInfo!(ReturnT, F, flag)(id);
+    else
+        return getValueInfo!(ReturnT, F, flag)(id);
+}
+
+auto getArrayInfo(ElemT, alias F, alias flag, T)(T id)
+{
+    size_t size;
+    F(id, flag, 0, null, &size).clEnforce();
+    assert(size % ElemT.sizeof == 0);
+    ElemT[] value;
+    value.length = size / ElemT.sizeof;
+    F(id, flag, size, value.ptr, null).clEnforce();
+    return value;
+}
+
+auto getStaticArrayInfo(ArrayT, alias F, alias flag, T)(T id)
+{
+    ArrayT value;
+    F(id, flag, value.memSize, value.ptr, null).clEnforce();
+    return value;
+}
+
+auto getValueInfo(V, alias F, alias flag, T)(T id)
+{
+    V value;
+    F(id, flag, typeof(value).sizeof, &value, null).clEnforce();
+    return value;
+}
+
 template GetEARTs(T)
 {
     static if (is(T : cl.command_queue))
-        alias GetEARTs = queueInfoEnums;
+        alias GetEARTs = AliasSeq!queueInfoEnums;
     else static if (is(T : cl.platform_id))
-        alias GetEARTs = platformInfoEnums;
+        alias GetEARTs = AliasSeq!platformInfoEnums;
     else static if (is(T : cl.device_id))
-        alias GetEARTs = deviceInfoEnums;
+        alias GetEARTs = AliasSeq!deviceInfoEnums;
     else static if (is(T : cl.context))
-        alias GetEARTs = contextInfoEnums;
+        alias GetEARTs = AliasSeq!contextInfoEnums;
     else static if (is(T : CLBuffer!X, X))
-        alias GetEARTs = memObjectInfoEnums;
+        alias GetEARTs = AliasSeq!memObjectInfoEnums;
     else static if (is(T : CLImage!X, X))
-        alias GetEARTs = imageInfoEnums;
+        alias GetEARTs = AliasSeq!imageInfoEnums;
     else static if (is(T : cl.sampler))
-        alias GetEARTs = samplerInfoEnums;
+        alias GetEARTs = AliasSeq!samplerInfoEnums;
     else static if (is(T : cl.program))
-        alias GetEARTs = Arguments!(programInfoEnums, programBuildInfoEnums);
+        alias GetEARTs = AliasSeq!(programInfoEnums, programBuildInfoEnums);
     else static if (is(T : cl.kernel))
-        alias GetEARTs = Arguments!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
+        alias GetEARTs = AliasSeq!(kernelInfoEnums, kernelArgInfoEnums, kernelWorkGroupInfoEnums);
     else static if (is(T : cl.event))
-        alias GetEARTs = Arguments!(eventInfoEnums, eventProfilingInfoEnums);
+        alias GetEARTs = AliasSeq!(eventInfoEnums, eventProfilingInfoEnums);
 }
 
-private struct EnumAndReturnType(alias v_, T_, alias handler_ = null)
+private struct EnumAndReturnType(alias flag_, ReturnT_, alias handler_ = null)
 {
-    alias v = v_;
-    alias T = T_;
+    alias flag = flag_;
+    alias ReturnT = ReturnT_;
     static if(!is(typeof(handler_) == typeof(null)))
         alias handler = handler_;
 }
@@ -99,6 +105,7 @@ private struct EnumAndReturnType(alias v_, T_, alias handler_ = null)
 private alias EART = EnumAndReturnType;
 
 private struct EARTGroup(alias F_, EARTs_...)
+if (allSatisfy!(applyLeft!(isInstanceOf, EART), EARTs_))
 {
     alias F = F_;
     alias EARTs = EARTs_;
@@ -286,6 +293,22 @@ alias programInfoEnums = EARTGroup!(getProgramInfo,
         EART!(PROGRAM_NUM_KERNELS, size_t),
         EART!(PROGRAM_KERNEL_NAMES, char[]));
 
+template ProgramBuildInfoEART(alias flag, ReturnT)
+{
+    auto impl(cl.kernel id, cl.device_id device)
+    {
+        auto forward(cl.program program, cl.program_build_info param_name,
+                size_t param_value_size, void* param_value,
+                size_t* param_value_size_ret)
+        {
+            return cl.getProgramBuildInfo(program, device, param_name,
+                    param_value_size, param_value, param_value_size_ret);
+        }
+        return getInfoGeneric!(ReturnT, forward, flag)(id);
+    }
+    alias ProgramBuildInfoEART = EART!(flag, ReturnT, impl);
+}
+
 alias programBuildInfoEnums = EARTGroup!(getProgramBuildInfo,
         EART!(PROGRAM_BUILD_STATUS, build_status),
         EART!(PROGRAM_BUILD_OPTIONS, char[]),
@@ -300,20 +323,52 @@ alias kernelInfoEnums = EARTGroup!(getKernelInfo,
         EART!(KERNEL_PROGRAM, program),
         EART!(KERNEL_ATTRIBUTES, char[]));
 
+template KernelArgEART(alias flag, ReturnT)
+{
+    auto impl(cl.kernel id, cl.uint_ arg_indx)
+    {
+        auto forward(cl.kernel kernel, cl.kernel_arg_info param_name,
+                size_t param_value_size, void* param_value,
+                size_t* param_value_size_ret)
+        {
+            return cl.getKernelArgInfo(kernel, arg_indx, param_name,
+                    param_value_size, param_value, param_value_size_ret);
+        }
+        return getInfoGeneric!(ReturnT, forward, flag)(id);
+    }
+    alias KernelArgEART = EART!(flag, ReturnT, impl);
+}
+
 alias kernelArgInfoEnums = EARTGroup!(getKernelArgInfo,
-        EART!(KERNEL_ARG_ADDRESS_QUALIFIER, kernel_arg_address_qualifier),
-        EART!(KERNEL_ARG_ACCESS_QUALIFIER, kernel_arg_access_qualifier),
-        EART!(KERNEL_ARG_TYPE_NAME, char[]),
-        EART!(KERNEL_ARG_TYPE_QUALIFIER, kernel_arg_type_qualifier),
-        EART!(KERNEL_ARG_NAME, char[]));
+        KernelArgEART!(KERNEL_ARG_ADDRESS_QUALIFIER, kernel_arg_address_qualifier),
+        KernelArgEART!(KERNEL_ARG_ACCESS_QUALIFIER, kernel_arg_access_qualifier),
+        KernelArgEART!(KERNEL_ARG_TYPE_NAME, char[]),
+        KernelArgEART!(KERNEL_ARG_TYPE_QUALIFIER, kernel_arg_type_qualifier),
+        KernelArgEART!(KERNEL_ARG_NAME, char[]));
+
+template KernelWorkGroupEART(alias flag, ReturnT)
+{
+    auto impl(cl.kernel id, cl.device_id device)
+    {
+        auto forward(cl.kernel kernel, cl.kernel_work_group_info param_name,
+                size_t param_value_size, void* param_value,
+                size_t* param_value_size_ret)
+        {
+            return cl.getKernelWorkGroupInfo(kernel, device, param_name,
+                    param_value_size, param_value, param_value_size_ret);
+        }
+        return getInfoGeneric!(ReturnT, forward, flag)(id);
+    }
+    alias KernelWorkGroupEART = EART!(flag, ReturnT, impl);
+}
 
 alias kernelWorkGroupInfoEnums = EARTGroup!(getKernelWorkGroupInfo,
-        EART!(KERNEL_WORK_GROUP_SIZE, size_t),
-        EART!(KERNEL_COMPILE_WORK_GROUP_SIZE, size_t[3]),
-        EART!(KERNEL_LOCAL_MEM_SIZE, ulong),
-        EART!(KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, size_t),
-        EART!(KERNEL_PRIVATE_MEM_SIZE, ulong),
-        EART!(KERNEL_GLOBAL_WORK_SIZE, size_t[3]));
+        KernelWorkGroupEART!(KERNEL_WORK_GROUP_SIZE, size_t),
+        KernelWorkGroupEART!(KERNEL_COMPILE_WORK_GROUP_SIZE, size_t[3]),
+        KernelWorkGroupEART!(KERNEL_LOCAL_MEM_SIZE, ulong),
+        KernelWorkGroupEART!(KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, size_t),
+        KernelWorkGroupEART!(KERNEL_PRIVATE_MEM_SIZE, ulong),
+        KernelWorkGroupEART!(KERNEL_GLOBAL_WORK_SIZE, size_t[3]));
 
 alias eventInfoEnums = EARTGroup!(getEventInfo,
         EART!(EVENT_COMMAND_QUEUE, command_queue),
@@ -337,3 +392,4 @@ alias glContextInfoEnums = EARTGroup!(getGLContextInfoKHR,
         EART!(CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, device_id),
         EART!(DEVICES_FOR_GL_CONTEXT_KHR, device_id[]));
 +/
+
