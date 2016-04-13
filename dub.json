@@ -4,7 +4,7 @@
         {
             "name": "level1",
             "dependencies": {
-                "derelict-cl": ">=1.2.1"
+                "derelict-cl": ">=2.0.0"
             },
             "sourcePaths": ["level1"],
             "importPaths": ["level1"],
@@ -33,8 +33,8 @@
         {
             "name": "bindgen",
             "dependencies": {
-                "libdparse": ">=0.1.1",
-                "derelict-cl": ">=1.2.1"
+                "libdparse": ">=0.6.0",
+                "derelict-cl": ">=2.0.0"
             },
             "sourcePaths": ["bindGen"],
             "targetType": "executable",

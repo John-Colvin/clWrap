@@ -105,7 +105,7 @@ private struct EnumAndReturnType(alias flag_, ReturnT_, alias handler_ = null)
 private alias EART = EnumAndReturnType;
 
 private struct EARTGroup(alias F_, EARTs_...)
-if (allSatisfy!(applyLeft!(isInstanceOf, EART), EARTs_))
+if (allSatisfy!(ApplyLeft!(isInstanceOf, EART), EARTs_))
 {
     alias F = F_;
     alias EARTs = EARTs_;
