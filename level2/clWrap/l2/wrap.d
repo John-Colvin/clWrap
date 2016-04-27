@@ -1,4 +1,4 @@
-module clWrap.l2.wrap;
+module clwrap.l2.wrap;
 
 public static import cl = clWrap.cl;
 
@@ -99,10 +99,10 @@ if (isInstanceOf!(CLKernel, Kernel))
 /**
  * Enqueue a given kernel on to a given command queue. See enqueueNDRangeKernel
  */
-void enqueueCLKernel(cl.command_queue queue,
+auto enqueueCLKernel(cl.command_queue queue,
     cl.kernel kernel, const size_t[] globalWorkSize,
     const size_t[] globalWorkOffset = null, const size_t[] localWorkSize = null,
-    const cl.event[] waitList = null, cl.event* event = null)
+    const cl.event[] waitList = null)
 in
 {
     if(globalWorkOffset)
@@ -112,10 +112,12 @@ in
 }
 body
 {
+    cl.event ev;
     cl.enqueueNDRangeKernel(queue, kernel, globalWorkSize.length.to!uint,
             globalWorkOffset.ptr, globalWorkSize.ptr, localWorkSize.ptr,
-            cast(uint)waitList.length, waitList.ptr, event)
+            cast(uint)waitList.length, waitList.ptr, &ev)
         .clEnforce();
+    return ev;
 }
 
 /**
@@ -323,34 +325,45 @@ auto createProgram(KernelDefs ...)(cl.context context, KernelDefs kernelDefs)
  * Given a program, build it. Reports any build logs in the thrown exception message if building
  * fails
  */
-cl.program buildProgramImpl(cl.program program, cl.device_id[] devices = null, const(char)[] options = null)
+cl.program buildProgramImpl(cl.program program,
+        Flag!"AllowWarnings" allowWarnings = No.AllowWarnings,
+        cl.device_id[] devices = null, const(char)[] options = null)
 {
+    auto getLogs()
+    {
+        if (devices is null)
+        {
+            size_t nDevices = program.getInfo!(cl.PROGRAM_NUM_DEVICES);
+            devices = new cl.device_id[nDevices];
+            cl.getProgramInfo(program, cl.PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
+        }
+        auto buildLogs = new char[][devices.length];
+        foreach(i, dev; devices)
+        {
+            size_t len;
+            cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, 0, null, &len);
+            buildLogs[i] = new char[len];
+            cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, buildLogs[i].memSize, buildLogs[i].ptr, null);
+        }
+        return buildLogs.join("\n\n");
+    }
+
+    if (!allowWarnings)
+        options ~= " -Werror ";
+
     cl.buildProgram(program,
             devices.length.to!uint, devices.ptr, options.toStringz(), null, null)
-        .clEnforce({
-                if(devices is null)
-                {
-                    size_t nDevices = program.getInfo!(cl.PROGRAM_NUM_DEVICES);
-                    devices = new cl.device_id[nDevices];
-                    cl.getProgramInfo(program, cl.PROGRAM_DEVICES, devices.memSize, devices.ptr, null);
-                }
-                auto buildLogs = new char[][devices.length];
-                foreach(i, dev; devices)
-                {
-                    size_t len;
-                    cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, 0, null, &len);
-                    buildLogs[i] = new char[len];
-                    cl.getProgramBuildInfo(program, dev, cl.PROGRAM_BUILD_LOG, buildLogs[i].memSize, buildLogs[i].ptr, null);
-                }
-                return buildLogs.join("\n\n");
-            }());
+        .clEnforce(getLogs());
+    writeln(getLogs);
     return program;
 }
 
-auto buildProgram(Program)(Program program, cl.device_id[] devices = null, const(char)[] options = null)
+auto buildProgram(Program)(Program program,
+        Flag!"AllowWarnings" allowWarnings = No.AllowWarnings,
+        cl.device_id[] devices = null, const(char)[] options = null)
 if (isInstanceOf!(CLProgram, Program))
 {
-    .buildProgramImpl(program, devices, options);
+    .buildProgramImpl(program, allowWarnings, devices, options);
     return program;
 }
 
@@ -371,7 +384,7 @@ struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
 
     enum nParallelDims = nDims;
 
-    this(R)(R r)
+    this(R)(R r, string[] headerNames ...)
     if (is(ElementType!R : dchar))
     {
         import std.utf, std.string, std.meta;
@@ -383,8 +396,12 @@ struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
         if (r.startsWith("__kernel"))
             source = r.to!string;
         else
-            source = `__kernel void ` ~ name ~ `(` ~ argStr ~ `){` ~
-                r.to!string ~ `}`;
+            source = `__kernel void ` ~ name ~ `(` ~ argStr ~ "){\n" ~
+                r.to!string ~ "\n}";
+
+        source = headerNames
+                     .map!(h => "#include \"" ~ h ~ "\"\n").join
+               ~ import("utils.h") ~ "\n" ~ source;
     }
 }
 

@@ -1,5 +1,5 @@
 {
-    "name": "rangeTest",
+    "name": "rangetest",
     "sourcePaths": ["."],
     "dependencies": {
         "clwrap:level3": { "path": "../../" }

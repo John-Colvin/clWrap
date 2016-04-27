@@ -10,17 +10,13 @@ import std.stdio;
 auto kernelDefA = CLKernelDef!("kernelA", 2,
         CLBuffer!float, "input", float, "b")
 (q{
-    size_t idx = get_global_id(0) * get_global_size(1) + get_global_id(1);
-
-    input[idx] += exp(cos(b));
+    input[gLinId] += exp(cos(b));
 });
 
 auto kernelDefB = CLKernelDef!("kernelB", 2,
         CLBuffer!float, "input", uint, "a")
 (q{
-    size_t idx = get_global_id(0) * get_global_size(1) + get_global_id(1);
-
-    input[idx] += sqrt(input[idx] + a);
+    input[gLinId] += sqrt(input[gLinId] + a);
 });
 
 void main()
@@ -41,7 +37,7 @@ void main()
     auto kernelB = kernels[1];
 
     auto input = iota(1_024 * 10_240).map!(to!float).array;
-    auto devBuff = context.newBuffer(cl.MEM_COPY_HOST_PTR, input);
+    auto devBuff = context.newBuffer(cl.MEM_USE_HOST_PTR, input);
 
     auto task1 = task(kernelA);
     auto task2 = task(kernelB);
@@ -74,5 +70,7 @@ void main()
         t2Ev = task2i.enqueue();
     }
 
-    queue.read(devBuff, input, Yes.Blocking, 0, [t2Ev]);
+    cl.finish(queue);
+
+    input[0 .. 10].writeln;
 }

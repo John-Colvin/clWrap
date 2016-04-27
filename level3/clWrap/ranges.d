@@ -58,7 +58,6 @@ template clBegin(Params ...)
         alias names = staticMap!(GetName, AliasSeq!(Params, Args));
         alias types = staticMap!(GetType, AliasSeq!(Params, Args));
 
-        CLKernelDef!
 
         CLKernelDef!(2, Args)(source).clBegin!blocking;
     }
@@ -87,6 +86,7 @@ struct CLSetup
 }
 
 CLSetup defaultSetup;
+alias cld = defaultSetup;
 
 static this()
 {

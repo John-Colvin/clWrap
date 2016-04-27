@@ -1,14 +1,11 @@
 import clWrap;
 
-import std.range, std.array, std.conv, std.stdio;
+import std.range, std.array, std.conv, std.stdio, std.algorithm;
 
 auto someKernelDef = CLKernelDef!("someKernel", 2,
         CLBuffer!(float), "input", float, "b")
 (q{
-    size_t i = get_global_id(0);
-    size_t j = get_global_id(1);
-
-    input[i + j] = exp(cos(input[i + j] * b));
+    input[gLinId] = exp(cos(input[gLinId] * b));
 });
 
 void main()
@@ -22,14 +19,14 @@ void main()
         .buildProgram
         .createKernel!"someKernel";
 
-    auto input = iota(110).array.to!(float[]);
+    auto input = iota(90).map!(to!float).array;
 
     auto buff = context.newBuffer(cl.MEM_COPY_HOST_PTR, input);
 
     kernel.setArgs(buff, 1.4f);
-    queue.enqueueCLKernel(kernel, [100UL, 10UL]);
+    queue.enqueueCLKernel(kernel, [10UL, 9UL]);
 
-    auto output = new float[](110);
+    auto output = new float[](90);
     queue.read(buff, output, Yes.Blocking);
 
     writeln(output);

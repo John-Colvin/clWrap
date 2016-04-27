@@ -18,6 +18,7 @@
             },
             "sourcePaths": ["level2"],
             "importPaths": ["level2"],
+            "stringImportPaths": ["level2"],
             "targetType": "library"
         },
         {
@@ -40,10 +41,10 @@
             "targetType": "executable",
             "targetName": "genFunctions",
             "preGenerateCommands": [
-                "printf 'auto input = \"$DERELICT_CL_PACKAGE_DIR/source/derelict/opencl/functions.d\";\nauto output = \"level1/clWrap/l1/functions.d\";' > bindGen/input_output.d"
+                "printf 'auto input = \"$DERELICT_CL_PACKAGE_DIR/source/derelict/opencl/functions.d\";\nauto output = \"$PACKAGE_DIR/level1/clWrap/l1/functions.d\";' > $PACKAGE_DIR/bindGen/input_output.d"
             ],
             "postBuildCommands": [
-                "rm bindGen/input_output.d"
+                "rm $PACKAGE_DIR/bindGen/input_output.d",
             ]
         },
     ]

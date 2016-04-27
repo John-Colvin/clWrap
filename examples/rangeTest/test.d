@@ -1,23 +1,25 @@
-import clWrap;
+import clwrap; clwrap.ranges;
 
-import std.range, std.array, std.conv, std.stdio;
+import std.range, std.array, std.conv, std.stdio, std.algorithm;
 
 auto someKernelDef = CLKernelDef!("someKernel", 2,
         CLBuffer!float, "input",
         float, "b")
 (q{
-    size_t idx = get_global_id(0) * get_global_size(1)
-        + get_global_id(1);
-
-    input[idx] = exp(cos(input[i + j] * b));
+    input[gLinId] = exp(cos(input[gLinId] * b));
 });
 
 void main()
 {
-    auto output = new float[](110);
+    auto output = new float[](1000);
 
     auto input = iota(1000).map!(to!float).array;
 
+    auto inputBuff = cld.context.newBuffer(cl.MEM_COPY_HOST_PTR, input);
+    someKernelDef.clCall(inputBuff, 3.4);
+    cld.read(inputBuff, output, Yes.Blocking);
+    output.writeln;
+/+
     input
         .sliced(100, 10)
         .clBuff(cl.MEM_COPY_HOST_PTR)
@@ -45,4 +47,5 @@ void main()
     })(someBuff, someOtherBuff, PI);
 
     writeln(output.clRead);
++/
 }
