@@ -1,8 +1,8 @@
-module clWrap.l2.info;
+module clwrap.l2.info;
 
-import clWrap.l2.errors;
-import clWrap.l2.wrap;
-import clWrap.cl;
+import clwrap.l2.errors;
+import clwrap.l2.wrap;
+import clwrap.cl;
 
 import std.traits;
 import std.meta;

@@ -1,5 +1,5 @@
-import clWrap;
-import clWrap.task;
+import clwrap;
+import clwrap.task;
 
 import std.typecons : tuple;
 import std.range;

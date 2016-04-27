@@ -1,7 +1,7 @@
-module clWrap.l2.clSelect;
+module clwrap.l2.clSelect;
 
-import clWrap.l2.wrap;
-import clWrap.l2.info;
+import clwrap.l2.wrap;
+import clwrap.l2.info;
 
 import std.file;
 import std.process;

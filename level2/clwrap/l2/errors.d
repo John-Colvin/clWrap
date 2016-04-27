@@ -1,4 +1,4 @@
-module clWrap.l2.errors;
+module clwrap.l2.errors;
 
 import derelict.opencl.cl;
 import std.exception;

@@ -1,6 +1,6 @@
 module clwrap.l2.wrap;
 
-public static import cl = clWrap.cl;
+public static import cl = clwrap.cl;
 
 public import derelict.opencl.cl : CLVersion;
 
@@ -8,7 +8,7 @@ import derelict.opengl3.gl3;
 import std.exception, std.range, std.conv, std.meta,
        std.algorithm, std.traits, std.string, std.typecons;
 debug import std.stdio;
-import clWrap.l2.errors, clWrap.l2.info, clWrap.l2.util;
+import clwrap.l2.errors, clwrap.l2.info, clwrap.l2.util;
 
 /**
  * enqueue a write command on a given command queue. See enqueueWriteBuffer

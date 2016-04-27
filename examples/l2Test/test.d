@@ -1,4 +1,4 @@
-import clWrap;
+import clwrap;
 
 import std.range, std.array, std.conv, std.stdio, std.algorithm;
 

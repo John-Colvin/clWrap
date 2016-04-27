@@ -1,4 +1,4 @@
-module clWrap.l1.types;
+module clwrap.l1.types;
 
 import derelict.opencl.cl;
 

@@ -1,7 +1,7 @@
-module clWrap.l1.enums;
+module clwrap.l1.enums;
 
 import derelict.opencl.cl;
-import clWrap.l1.types;
+import clwrap.l1.types;
 
 enum : int_
 {

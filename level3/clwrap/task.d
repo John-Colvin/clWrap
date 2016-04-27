@@ -1,11 +1,11 @@
-module clWrap.task;
+module clwrap.task;
 
 import std.typetuple : TT = TypeTuple;
 import std.algorithm;
 import std.range;
 import std.array;
 
-import clWrap;
+import clwrap;
 
 //sometimes no need for events that check partial completion for
 //pipes, OpenCL 2.0 has pipes built in.

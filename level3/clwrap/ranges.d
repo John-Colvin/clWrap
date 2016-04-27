@@ -1,6 +1,6 @@
 
 import std.typecons : Flag;
-import clWrap;
+import clwrap;
 
 string clType(T)()
 {
