@@ -1,0 +1,7 @@
+*.a
+*.o
+.dub
+dub.selections.json
+__test__library__
+l2test
+l3test
