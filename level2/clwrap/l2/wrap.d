@@ -82,7 +82,7 @@ void setArgs(TL ...)(cl.kernel kernel, TL args)
  * Checks that you are passing the right argument types to the
  * kernel before setting them
  */
-void setArgs(Kernel, TL ...)(Kernel kernel, TL args)
+Kernel setArgs(Kernel, TL ...)(Kernel kernel, TL args)
 if (isInstanceOf!(CLKernel, Kernel))
 {
     static assert(Kernel.ArgTypes.length >= TL.length,
@@ -91,9 +91,10 @@ if (isInstanceOf!(CLKernel, Kernel))
         static assert(is(T == NoChange)
             || is(T == LocalBuffer)
             || is(T == Kernel.ArgTypes[i]),
-            T.stringof ~ "  " ~ Kernel.ArgTypes[i].stringof);
+            "Got " ~ T.stringof ~ ", expected: " ~ Kernel.ArgTypes[i].stringof);
 
     kernel.id.setArgs(args);
+    return kernel;
 }
 
 /**
@@ -321,10 +322,6 @@ auto createProgram(KernelDefs ...)(cl.context context, KernelDefs kernelDefs)
     return CLProgram!KernelDefs(.createProgram(context, sources));
 }
 
-/**
- * Given a program, build it. Reports any build logs in the thrown exception message if building
- * fails
- */
 cl.program buildProgramImpl(cl.program program,
         Flag!"AllowWarnings" allowWarnings = No.AllowWarnings,
         cl.device_id[] devices = null, const(char)[] options = null)
@@ -358,6 +355,10 @@ cl.program buildProgramImpl(cl.program program,
     return program;
 }
 
+/**
+ * Given a program, build it. Reports any build logs in the thrown exception message if building
+ * fails
+ */
 auto buildProgram(Program)(Program program,
         Flag!"AllowWarnings" allowWarnings = No.AllowWarnings,
         cl.device_id[] devices = null, const(char)[] options = null)

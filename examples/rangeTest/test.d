@@ -1,4 +1,4 @@
-import clwrap; clwrap.ranges;
+import clwrap, clwrap.ranges;
 
 import std.range, std.array, std.conv, std.stdio, std.algorithm;
 
@@ -16,8 +16,8 @@ void main()
     auto input = iota(1000).map!(to!float).array;
 
     auto inputBuff = cld.context.newBuffer(cl.MEM_COPY_HOST_PTR, input);
-    someKernelDef.clCall(inputBuff, 3.4);
-    cld.read(inputBuff, output, Yes.Blocking);
+    someKernelDef.clCall([input.length], inputBuff, 3.4f);
+    cld.queue.read(inputBuff, output, Yes.Blocking);
     output.writeln;
 /+
     input
