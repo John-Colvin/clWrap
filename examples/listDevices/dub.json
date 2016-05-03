@@ -1,0 +1,8 @@
+{
+    "name": "list-devices",
+    "sourcePaths": ["."],
+    "dependencies": {
+        "clwrap:level2": { "path": "../../" }
+    },
+    "targetType": "executable"
+}

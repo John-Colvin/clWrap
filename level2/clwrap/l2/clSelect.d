@@ -55,12 +55,13 @@ auto readConfig(string configFileName = null)
 /** Finds first platform that matches the name specified in the
  * config file.
  */
-auto getChosenPlatform()
+auto getChosenPlatform(string name = null)
 {
     import derelict.opencl.cl : DerelictCL;
     DerelictCL.load();
 
-    auto name = readConfig().to!string;
+    if (name is null)
+        name = readConfig().to!string;
     auto platforms = getPlatforms();
 
     foreach(platform; platforms)
