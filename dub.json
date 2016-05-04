@@ -9,6 +9,7 @@
             "sourcePaths": ["level1"],
             "importPaths": ["level1"],
             "targetType": "library",
+            "preBuildCommands": ["dub run clwrap:bindgen"]
         },
         {
             "name": "level2",
