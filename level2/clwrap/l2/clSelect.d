@@ -32,7 +32,7 @@ void writeConfig(CLPlatform platform)
     write(configFileName,
             "{\n    \"platformName\": \"" ~ platName ~ "\"\n}");
 }+/
-    
+
 auto readConfig(string configFileName = null)
 {
     foreach(fileName; [configFileName] ~ configFileNames)

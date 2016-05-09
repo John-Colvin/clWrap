@@ -14,7 +14,7 @@ import clwrap.l2.errors, clwrap.l2.info, clwrap.l2.util;
  * enqueue a write command on a given command queue. See enqueueWriteBuffer
  */
 void write(T)(cl.command_queue queue, cl.mem buffer, T[] data,
-        Flag!"Blocking" blocking = No.Blocking, size_t offset = 0, const cl.event[] waitList = null,
+        Flag!"Blocking" blocking = Yes.Blocking, size_t offset = 0, const cl.event[] waitList = null,
         cl.event* event = null)
 {
     cl.enqueueWriteBuffer(queue, buffer, blocking, offset, data.memSize, data.ptr,
@@ -26,7 +26,7 @@ void write(T)(cl.command_queue queue, cl.mem buffer, T[] data,
  * enqueue a read command on a given command queue. See enqueueReadBuffer
  */
 void read(T)(cl.command_queue queue, cl.mem buffer, T[] data,
-        Flag!"Blocking" blocking = No.Blocking, size_t offset = 0, const cl.event[] waitList = null,
+        Flag!"Blocking" blocking = Yes.Blocking, size_t offset = 0, const cl.event[] waitList = null,
         cl.event* event = null)
 {
     cl.enqueueReadBuffer(queue, buffer, blocking, offset, data.memSize, data.ptr,
@@ -130,6 +130,7 @@ struct CLBuffer(T)
     cl.mem buffer;
     alias buffer this;
 }
+
 
 /**
  * create a new buffer from given data, see clCreateBuffer
@@ -372,7 +373,7 @@ if (isInstanceOf!(CLProgram, Program))
  *
  */
 // TODO: use getKernelArgInfo to validate name & ArgTypes
-struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
+struct CLKernelDef(string kernelName, ArgDesc ...)
 {
     const(char)[] source;
 
@@ -382,8 +383,6 @@ struct CLKernelDef(string kernelName, uint nDims, ArgDesc ...)
     private alias TupleT = Tuple!ArgDesc;
     alias ArgTypes = TupleT.Types;
     alias ArgNames = TupleT.fieldNames;
-
-    enum nParallelDims = nDims;
 
     this(R)(R r, string[] headerNames ...)
     if (is(ElementType!R : dchar))
@@ -428,7 +427,7 @@ if (isInstanceOf!(CLKernelDef, KernelDef))
 
     alias ArgTypes = KernelDef.ArgTypes;
 
-    enum nParallelDims = KernelDef.nParallelDims;
+    //enum nParallelDims = KernelDef.nParallelDims;
 
     enum name = KernelDef.name;
 

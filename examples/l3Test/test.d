@@ -7,13 +7,13 @@ import std.algorithm;
 import std.conv;
 import std.stdio;
 
-auto kernelDefA = CLKernelDef!("kernelA", 2,
+auto kernelDefA = CLKernelDef!("kernelA",
         CLBuffer!float, "input", float, "b")
 (q{
     input[gLinId] += exp(cos(b));
 });
 
-auto kernelDefB = CLKernelDef!("kernelB", 2,
+auto kernelDefB = CLKernelDef!("kernelB",
         CLBuffer!float, "input", uint, "a")
 (q{
     input[gLinId] += sqrt(input[gLinId] + a);

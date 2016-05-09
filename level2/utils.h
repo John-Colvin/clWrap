@@ -22,13 +22,6 @@
 #define lK lId(2)
 #define lL lId(3)
 
-#if __OPENCL_C_VERSION__ >= 200
-
-#define gLinId get_global_linear_id()
-#define lLinId get_local_linear_id()
-
-#else
-
 #define LINIDIMPL(LG)                \
 size_t LG##LinIdImpl(void);          \
 size_t LG##LinIdImpl(void)           \
@@ -48,8 +41,6 @@ LINIDIMPL(l)
 
 #define gLinId gLinIdImpl()
 #define lLinId lLinIdImpl()
-
-#endif
 
 // end of the include guard
 #endif

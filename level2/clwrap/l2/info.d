@@ -7,6 +7,22 @@ import clwrap.cl;
 import std.traits;
 import std.meta;
 
+template ApplyLeft(alias Template, args...)
+{
+    static if (args.length)
+    {
+        template ApplyLeft(right...)
+        {
+            static if (is(typeof(Template!(args, right))))
+                enum ApplyLeft = Template!(args, right); // values
+            else
+                alias ApplyLeft = Template!(args, right); // symbols
+        }
+    }
+    else
+        alias ApplyLeft = Template;
+}
+
 /+
 template getInfo(alias F)
 {

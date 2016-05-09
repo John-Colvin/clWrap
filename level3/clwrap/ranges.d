@@ -1,5 +1,6 @@
-import std.typecons : Flag, Yes, No;
+import std.typecons : Flag, Yes, No, Nullable;
 import clwrap;
+import std.traits : hasMember, isInstanceOf;
 
 string clType(T)()
 {
@@ -51,7 +52,7 @@ alias GetType(alias a) = typeof(a);
 template clBegin(Params ...)
 {
     // could support things other than Named with some default naming scheme
-    auto clBegin(Flag!"Blocking" blocking = No.Blocking, Args ...)(const(char)[] source, Args args)
+    auto clBegin(Flag!"Blocking" blocking = Yes.Blocking, Args ...)(const(char)[] source, Args args)
     if (allSatisfy!(isNamed, Args))
     {
         alias names = staticMap!(GetName, AliasSeq!(Params, Args));
@@ -62,7 +63,7 @@ template clBegin(Params ...)
     }
 }
 
-auto clBegin(Flag!"Blocking" blocking = No.Blocking, KernelDefT, Args ...)(KernelDefT kernelDef, Args args)
+auto clBegin(Flag!"Blocking" blocking = Yes.Blocking, KernelDefT, Args ...)(KernelDefT kernelDef, Args args)
 if (is(KernelDefT : CLKernelDef!X, X...))
 {
     cld.context.createProgram(kernelDef)
@@ -71,7 +72,7 @@ if (is(KernelDefT : CLKernelDef!X, X...))
     .clBegin!blocking(args);
 }
 
-auto clBegin(Flag!"Blocking" blocking = No.Blocking, KernelT, Args ...)(KernelT kernel, Args args)
+auto clBegin(Flag!"Blocking" blocking = Yes.Blocking, KernelT, Args ...)(KernelT kernel, Args args)
 if (is(KernelT : CLKernel!X, X...) && is(Args[0] : size_t[]))
 {
     kernel.setArgs(args[1 .. $]);
@@ -197,10 +198,23 @@ auto ev = data.createBuffer.clMap!kernel
     .padForLocalSize(64, 32)
     .call(otherArgs);
 +/
-private enum bool isSlice(T) = is(T : Slice!(N, Range), size_t N, Range);
 
-auto clMap(alias kernel, Flag!"Blocking" = No.Blocking, Slice)(Slice s, )
-if (is(typeof(kernel) : CLKernel!X, X...) && isSlice(Slice) && hasMember!(Slice, "ptr"))
+
+// DIMENSIONS ARE PART OF THE BUFFER TYPE!!!!!!!!!!!!!!!
+// OR MAYBE A BUFFER SLICE OBJECT??
+
+import mir.ndslice;
+
+/+
+auto clMap(alias kernel, Flag!"Blocking" = Yes.Blocking, SliceT, size_t buffIdx = 0, Args ...)
+    (SliceT s, Args args)
+if (is(typeof(kernel) : CLKernel!X, X...) && isSlice!(SliceT) && hasMember!(SliceT, "ptr"))
+in
+{
+    assert(s.structure.strides[].all!"a > 0",
+        "clMap does not support slices with negative strides");
+}
+body
 {
     auto structure = s.structure;
     auto shape = s.shape;
@@ -208,6 +222,232 @@ if (is(typeof(kernel) : CLKernel!X, X...) && isSlice(Slice) && hasMember!(Slice,
     auto p = zip(shape[], strides[]).maxPos!"a[1] < b[1]"[0];
     auto length = p[0] * p[1];
 
-    kernel.setArgs(args[1 .. $]);
+    auto flatData = s.ptr[0 .. length];
 
+    kernel.setArgs(args[0 .. buffIdx],
+            cld.context.newBuffer(cl.MEM_COPY_HOST_PTR, flatData),
+            args[buffIdx .. $]);
+
+    static struct Res
+    {
+        cl.kernel id;
+        Nullable!(size_t[kernel.nParallelDims]) localSizes;
+
+        Res setLocalSizes(typeof(localSizes) newSizes)
+        {
+            localSizes = newSizes;
+        }
+        auto enqueue()
+        {
+            return cld.queue.enqueueCLKernel(kernel, shape,
+                localSizes.isNull ? null, localSizes.get);
+        }
+    }
+
+    return Res(kernel);
 }
++/
+
+// What if there's some offset? All handled in strides in slice
+private auto getFlatSlice(SliceT)(SliceT s)
+if (isInstanceOf!(Slice, SliceT) && hasMember!(SliceT, "ptr"))
+{
+    import std.range : zip;
+    import std.algorithm : minPos;
+    auto structure = s.structure;
+    auto shape = s.shape;
+    auto strides = structure.strides;
+    auto p = zip(shape[], strides[]).minPos!"a[1] > b[1]".front;
+    auto length = p[0] * p[1];
+    import std.stdio;
+    writeln(length);
+
+    return s.ptr[0 .. length];
+}
+
+/*auto clMap(alias kernel, BufferT, Flag!"Blocking" blocking = Yes.Blocking, size_t buffIdx = 0, Args ...)
+    (BufferT buffer, Args args)
+if (is(typeof(kernel) : CLKernel!X, X...) && is(BufferT : CLBuffer!X, X))
+{
+    kernel.setArgs(args[0 .. buffIdx], buffer, args[buffIdx .. $]);
+
+    static struct Res
+    {
+        cl.kernel id;
+        Nullable!(size_t[kernel.nParallelDims]) localSizes;
+
+        Res setLocalSizes(typeof(localSizes) newSizes)
+        {
+            localSizes = newSizes;
+            return this;
+        }
+        auto enqueue()
+        {
+            return cld.queue.enqueueCLKernel(kernel, buffer.shape, null,
+                localSizes.isNull ? null : localSizes.get);
+        }
+    }
+
+    return Res(kernel);
+}*/
+
+auto clMap(alias kernel, BufferSliceT, Flag!"Blocking" blocking = Yes.Blocking, size_t buffIdx = 0, Args ...)
+    (BufferSliceT buffer, Args args)
+if (is(typeof(kernel) : CLKernel!X0, X0...) && is(BufferSliceT : CLBufferSlice!X1, X1...))
+in
+{
+    assert(buffer.strides[$-1] == 1);
+    static if (buffer.strides.length > 1)
+        assert(buffer.strides[$-2] == buffer.shape[$-1]);
+    static if (buffer.strides.length > 2)
+        assert(buffer.strides[$-3] == buffer.shape[$-1] * buffer.shape[$-2]);
+}
+body
+{
+    kernel.setArgs(args[0 .. buffIdx], buffer.toCLBuffer, args[buffIdx .. $]);
+
+    struct Res
+    {
+        cl.kernel id;
+        Nullable!(size_t[BufferSliceT.nDims]) localSizes;
+
+        Res setLocalSizes(typeof(localSizes) newSizes)
+        {
+            localSizes = newSizes;
+            return this;
+        }
+        auto enqueue()
+        {
+            return cld.queue.enqueueCLKernel(kernel, buffer.shape[], buffer.offsets[],
+                localSizes.isNull ? null : localSizes.get[]);
+        }
+    }
+
+    return Res(kernel);
+}
+
+auto toBuffer(SliceT)(SliceT slice, cl.mem_flags flags)
+if (isInstanceOf!(Slice, SliceT) && hasMember!(SliceT, "ptr") && slice.shape.length <= 3)
+in
+{
+    import std.algorithm : all;
+    assert(slice.structure.strides[].all!"a > 0",
+        "toBuffer does not support slices with negative strides");
+}
+body
+{
+    alias ElemT = typeof(slice.byElement.front);
+    enum ND = SliceT.init.shape.length;
+    return CLBufferSlice!(ElemT, ND)(
+        cld.context.newBuffer(flags, slice.getFlatSlice),
+        slice.shape,
+        size_t[ND].init,
+        cast(size_t[ND])slice.structure.strides
+    );
+}
+/+
+auto toBuffer(T)(T[] data, cl.mem_flags flags)
+{
+    return CLBufferSlice!(T, 1)(
+        cld.context.newBuffer(flags, data),
+        [data.length],
+        [0],
+        [1]
+    );
+}+/
+
+struct CLBufferSlice(T, size_t nDims_ = 1)
+if (nDims_ != 0 && nDims_ <= 3)
+{
+    cl.mem buffer;
+    alias buffer this;
+
+    enum nDims = nDims_;
+    size_t[nDims] shape; //comes *after* offsets, is shape of live data
+    size_t[nDims] offsets;
+    size_t[nDims] strides;
+
+    auto toCLBuffer()
+    {
+        return CLBuffer!T(buffer);
+    }
+}
+
+auto clWrite(T, size_t N)(CLBufferSlice!(T, N) buffer, Slice!(N, T*) slice, Flag!"Blocking" blocking = Yes.Blocking)
+in
+{
+    assert(buffer.shape == slice.shape);
+    assert(slice.structure.strides[$-1] == 1);
+    assert(buffer.strides[$-1] == 1);
+}
+body
+{
+    size_t[3] bufferOffsets;
+    bufferOffsets[0 .. N] = buffer.offsets;
+    size_t[3] hostOffsets;
+    size_t[3] shape;
+    shape[0 .. N] = buffer.shape.ptr;
+    auto sliceStrides = slice.structure.strides;
+    cl.enqueueWriteBufferRect(cld.queue,
+        buffer,
+        blocking,
+        bufferOffsets.ptr,
+        hostOffsets.ptr,
+        shape.ptr,
+        buffer.strides[1],
+        buffer.strides[0],
+        sliceStrides[1],
+        sliceStrides[0],
+        slice.ptr,
+        0, null, null);
+    return buffer;
+}
+
+auto clWrite(T)(CLBufferSlice!(T, 1) buffer, T[] data, Flag!"Blocking" blocking = Yes.Blocking)
+in
+{
+    assert(buffer.shape[0] == data.length);
+}
+body
+{
+    cld.queue.write(buffer, data, blocking, buffer.offset[0]);
+    return buffer;
+}
+
+auto clRead(T, size_t N)(CLBufferSlice!(T, N) buffer, Slice!(N, T*) slice, Flag!"Blocking" blocking = Yes.Blocking)
+in
+{
+    assert(buffer.shape == slice.shape);
+    assert(slice.structure.strides[$-1] == 1);
+    assert(buffer.strides[$-1] == 1);
+}
+body
+{
+    auto sliceStrides = slice.structure.strides;
+    cl.enqueueReadBufferRect(cld.queue,
+        buffer,
+        blocking,
+        buffer.offsets.ptr, //needs length 3
+        size_t[N].init.ptr, //needs length 3
+        buffer.shape.ptr, //needs length 3
+        buffer.strides[1],
+        buffer.strides[0],
+        sliceStrides[1],
+        sliceStrides[0],
+        slice.ptr,
+        0, null, null);
+    return buffer;
+}
+
+auto clRead(T)(CLBufferSlice!(T, 1) buffer, T[] data, Flag!"Blocking" blocking = Yes.Blocking)
+in
+{
+    assert(buffer.shape[0] == data.length);
+}
+body
+{
+    cld.queue.read(buffer, data, blocking, buffer.offset[0]);
+    return buffer;
+}
+
+

@@ -9,7 +9,6 @@
             "sourcePaths": ["level1"],
             "importPaths": ["level1"],
             "targetType": "library",
-            "preBuildCommands": ["dub run clwrap:bindgen"]
         },
         {
             "name": "level2",
@@ -26,7 +25,8 @@
             "name": "level3",
             "dependencies": {
                 "clwrap:level1": { "path": "./" },
-                "clwrap:level2": { "path": "./" }
+                "clwrap:level2": { "path": "./" },
+                "mir": ">=0.15.2"
             },
             "sourcePaths": ["level3"],
             "importPaths": ["level3"],

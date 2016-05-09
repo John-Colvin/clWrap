@@ -3,7 +3,8 @@
     "sourcePaths": ["."],
     "dependencies": {
         "clwrap:level3": { "path": "../../" },
-        "clwrap:level2": { "path": "../../" }
+        "clwrap:level2": { "path": "../../" },
+        "mir": "*"
     },
     "targetType": "executable"
 }
