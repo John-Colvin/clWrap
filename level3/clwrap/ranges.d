@@ -199,58 +199,11 @@ auto ev = data.createBuffer.clMap!kernel
     .call(otherArgs);
 +/
 
-
-// DIMENSIONS ARE PART OF THE BUFFER TYPE!!!!!!!!!!!!!!!
-// OR MAYBE A BUFFER SLICE OBJECT??
-
 import mir.ndslice;
-
-/+
-auto clMap(alias kernel, Flag!"Blocking" = Yes.Blocking, SliceT, size_t buffIdx = 0, Args ...)
-    (SliceT s, Args args)
-if (is(typeof(kernel) : CLKernel!X, X...) && isSlice!(SliceT) && hasMember!(SliceT, "ptr"))
-in
-{
-    assert(s.structure.strides[].all!"a > 0",
-        "clMap does not support slices with negative strides");
-}
-body
-{
-    auto structure = s.structure;
-    auto shape = s.shape;
-    auto strides = s.strides;
-    auto p = zip(shape[], strides[]).maxPos!"a[1] < b[1]"[0];
-    auto length = p[0] * p[1];
-
-    auto flatData = s.ptr[0 .. length];
-
-    kernel.setArgs(args[0 .. buffIdx],
-            cld.context.newBuffer(cl.MEM_COPY_HOST_PTR, flatData),
-            args[buffIdx .. $]);
-
-    static struct Res
-    {
-        cl.kernel id;
-        Nullable!(size_t[kernel.nParallelDims]) localSizes;
-
-        Res setLocalSizes(typeof(localSizes) newSizes)
-        {
-            localSizes = newSizes;
-        }
-        auto enqueue()
-        {
-            return cld.queue.enqueueCLKernel(kernel, shape,
-                localSizes.isNull ? null, localSizes.get);
-        }
-    }
-
-    return Res(kernel);
-}
-+/
 
 // What if there's some offset? All handled in strides in slice
 private auto getFlatSlice(SliceT)(SliceT s)
-if (isInstanceOf!(Slice, SliceT) && hasMember!(SliceT, "ptr"))
+if (isInstanceOf!(Slice, SliceT) && is(typeof(SliceT.ptr()) : Q*, Q))
 {
     import std.range : zip;
     import std.algorithm : minPos;
@@ -259,37 +212,9 @@ if (isInstanceOf!(Slice, SliceT) && hasMember!(SliceT, "ptr"))
     auto strides = structure.strides;
     auto p = zip(shape[], strides[]).minPos!"a[1] > b[1]".front;
     auto length = p[0] * p[1];
-    import std.stdio;
-    writeln(length);
 
     return s.ptr[0 .. length];
 }
-
-/*auto clMap(alias kernel, BufferT, Flag!"Blocking" blocking = Yes.Blocking, size_t buffIdx = 0, Args ...)
-    (BufferT buffer, Args args)
-if (is(typeof(kernel) : CLKernel!X, X...) && is(BufferT : CLBuffer!X, X))
-{
-    kernel.setArgs(args[0 .. buffIdx], buffer, args[buffIdx .. $]);
-
-    static struct Res
-    {
-        cl.kernel id;
-        Nullable!(size_t[kernel.nParallelDims]) localSizes;
-
-        Res setLocalSizes(typeof(localSizes) newSizes)
-        {
-            localSizes = newSizes;
-            return this;
-        }
-        auto enqueue()
-        {
-            return cld.queue.enqueueCLKernel(kernel, buffer.shape, null,
-                localSizes.isNull ? null : localSizes.get);
-        }
-    }
-
-    return Res(kernel);
-}*/
 
 auto clMap(alias kernel, BufferSliceT, Flag!"Blocking" blocking = Yes.Blocking, size_t buffIdx = 0, Args ...)
     (BufferSliceT buffer, Args args)
@@ -382,24 +307,42 @@ in
 }
 body
 {
-    size_t[3] bufferOffsets;
-    bufferOffsets[0 .. N] = buffer.offsets;
-    size_t[3] hostOffsets;
-    size_t[3] shape;
-    shape[0 .. N] = buffer.shape.ptr;
-    auto sliceStrides = slice.structure.strides;
+    size_t[3] bufferOffsets = 0;
+    size_t[3] hostOffsets = 0; //always all zeros
+    size_t[3] shape = 1;
+    size_t[2] sliceStrides = 0;
+    size_t[2] bufferStrides = 0;
+
+    bufferOffsets[0] = buffer.offsets[N-1] * T.sizeof;
+    shape[0] = buffer.shape[N-1] * T.sizeof;
+    static if(N > 1)
+    {
+        bufferOffsets[1] = buffer.offsets[N-2];
+        shape[1] = buffer.shape[N-2];
+        sliceStrides[0] = slice.structure.strides[N-2] * T.sizeof;
+        bufferStrides[0] = buffer.strides[N-2] * T.sizeof;
+    }
+    static if(N > 2)
+    {
+        bufferOffsets[2] = buffer.offsets[N-3];
+        shape[2] = buffer.shape[N-3];
+        sliceStrides[1] = slice.structure.strides[N-3] * T.sizeof;
+        bufferStrides[1] = buffer.strides[N-3] * T.sizeof;
+    }
+
     cl.enqueueWriteBufferRect(cld.queue,
         buffer,
         blocking,
         bufferOffsets.ptr,
         hostOffsets.ptr,
         shape.ptr,
-        buffer.strides[1],
-        buffer.strides[0],
-        sliceStrides[1],
+        bufferStrides[0],
+        bufferStrides[1],
         sliceStrides[0],
+        sliceStrides[1],
         slice.ptr,
         0, null, null);
+
     return buffer;
 }
 
@@ -423,20 +366,42 @@ in
 }
 body
 {
-    auto sliceStrides = slice.structure.strides;
+    size_t[3] bufferOffsets = 0;
+    size_t[3] hostOffsets = 0; //always all zeros
+    size_t[3] shape = 1;
+    size_t[2] sliceStrides = 0;
+    size_t[2] bufferStrides = 0;
+
+    bufferOffsets[0] = buffer.offsets[N-1] * T.sizeof;
+    shape[0] = buffer.shape[N-1] * T.sizeof;
+    static if(N > 1)
+    {
+        bufferOffsets[1] = buffer.offsets[N-2];
+        shape[1] = buffer.shape[N-2];
+        sliceStrides[0] = slice.structure.strides[N-2] * T.sizeof;
+        bufferStrides[0] = buffer.strides[N-2] * T.sizeof;
+    }
+    static if(N > 2)
+    {
+        bufferOffsets[2] = buffer.offsets[N-3];
+        shape[2] = buffer.shape[N-3];
+        sliceStrides[1] = slice.structure.strides[N-3] * T.sizeof;
+        bufferStrides[1] = buffer.strides[N-3] * T.sizeof;
+    }
+
     cl.enqueueReadBufferRect(cld.queue,
         buffer,
         blocking,
-        buffer.offsets.ptr, //needs length 3
-        size_t[N].init.ptr, //needs length 3
-        buffer.shape.ptr, //needs length 3
-        buffer.strides[1],
-        buffer.strides[0],
-        sliceStrides[1],
+        bufferOffsets.ptr,
+        hostOffsets.ptr,
+        shape.ptr,
+        bufferStrides[0],
+        bufferStrides[1],
         sliceStrides[0],
+        sliceStrides[1],
         slice.ptr,
         0, null, null);
-    return buffer;
+    return slice;
 }
 
 auto clRead(T)(CLBufferSlice!(T, 1) buffer, T[] data, Flag!"Blocking" blocking = Yes.Blocking)
@@ -450,4 +415,10 @@ body
     return buffer;
 }
 
-
+auto clBuildKernel(KernelDefT)(KernelDefT kernelDef)
+{
+    pragma(msg, KernelDefT.name);
+    return cld.context.createProgram(kernelDef)
+    .buildProgram
+    .createKernel!(KernelDefT.name);
+}
