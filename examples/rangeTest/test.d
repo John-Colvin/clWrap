@@ -9,6 +9,11 @@ auto myKernel = CLKernelDef!("someKernel",
     input[gLinId] = input[gLinId] * b;
 });
 
+void printMatrix(S)(S s)
+{
+    writefln("[%([%(%5g %)]%|\n %)]", s);
+}
+
 void main()
 {
     auto input = iota(40).map!(to!float).array;
@@ -19,8 +24,28 @@ void main()
     auto kern = myKernel.clBuildKernel;
     inputBuff.clMap!kern(2.0f).enqueue;
 
-    inputBuff.clRead(output);
-    foreach(elIn, elOut; zip(input.map!"a*2.0f", output.byElement))
-        enforce(elIn.approxEqual(elOut));
+    inputBuff
+        .clRead(output)
+        .byElement
+        .zip(input.map!"a*2.0f")
+        .all!(t => approxEqual(t.expand))
+        .enforce;
+
+    writeln("read the whole thing\n");
+    output.printMatrix;
+    writeln();
+    output[] = float.nan;
+
+    writeln("read strided 2 along dim 0\n");
+    inputBuff.strided!0(2)
+        .clRead(output.strided!0(2));
+    output.printMatrix;
+    writeln();
+    output[] = float.nan;
+
+    writeln("read sliced (1,1) to ($,$) then strided 2 along dim 0\n");
+    inputBuff[1..$, 1..$].strided!0(2)
+        .clRead(output[1 ..$, 1..$].strided!0(2));
+    output.printMatrix;
 }
 

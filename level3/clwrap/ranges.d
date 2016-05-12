@@ -1,6 +1,7 @@
 import std.typecons : Flag, Yes, No, Nullable;
 import clwrap;
 import std.traits : hasMember, isInstanceOf;
+import std.range : iota;
 
 string clType(T)()
 {
@@ -205,6 +206,8 @@ import mir.ndslice;
 private auto getFlatSlice(SliceT)(SliceT s)
 if (isInstanceOf!(Slice, SliceT) && is(typeof(SliceT.ptr()) : Q*, Q))
 {
+    //surely if it's a pointer underneath I can just get the address
+    //of the last element as well as the first?
     import std.range : zip;
     import std.algorithm : minPos;
     auto structure = s.structure;
@@ -263,11 +266,16 @@ body
 {
     alias ElemT = typeof(slice.byElement.front);
     enum ND = SliceT.init.shape.length;
+    auto flatSlice = slice.getFlatSlice;
+    auto shape = slice.shape;
+    auto strides = slice.structure.strides;
     return CLBufferSlice!(ElemT, ND)(
         cld.context.newBuffer(flags, slice.getFlatSlice),
-        slice.shape,
-        size_t[ND].init,
-        cast(size_t[ND])slice.structure.strides
+        Slice!(ND, typeof(iota(size_t.init)))(
+            /*slice.*/shape,
+            /*slice.structure.*/strides,
+            iota(flatSlice.length)
+        )
     );
 }
 /+
@@ -288,13 +296,87 @@ if (nDims_ != 0 && nDims_ <= 3)
     alias buffer this;
 
     enum nDims = nDims_;
-    size_t[nDims] shape; //comes *after* offsets, is shape of live data
-    size_t[nDims] offsets;
-    size_t[nDims] strides;
+    Slice!(nDims, typeof(iota(size_t.init))) dummySlice;
+
+    this(cl.mem buffer, size_t[nDims] shape)
+    {
+        import std.algorithm : fold;
+        this.buffer = buffer;
+        this.dummySlice = iota(shape[].fold!"a*b"(size_t(1))).sliced(shape);
+    }
+
+    void assignToDummySlice(T)(T s)
+    {
+        dummySlice = s;
+    }
+
+    this(cl.mem buffer, typeof(dummySlice) index)
+    {
+        this.buffer = buffer;
+        this.dummySlice = index;
+    }
+
+    size_t[nDims] offsets() @property
+    {
+        import std.algorithm : makeIndex;
+        //import std.stdio;
+        size_t[nDims] ret;
+        size_t[nDims] inStrideOrderIdx;
+        auto strides = dummySlice.structure.strides;
+        makeIndex(dummySlice.structure.strides[], inStrideOrderIdx[]);
+        size_t remainder = dummySlice.byElement[0];
+        //writeln("linearIdx ", remainder);
+        foreach_reverse(idx; inStrideOrderIdx)
+        {
+            ret[idx] = remainder / strides[idx];
+            remainder %= strides[idx];
+        }
+        assert(remainder == 0);
+        //writeln(dummySlice.structure, " ", ret);
+        return ret;
+    }
+
+    size_t[nDims] shape() @property
+    {
+        return dummySlice.shape;
+    }
+
+    long[nDims] strides() @property
+    {
+        return dummySlice.structure.strides;
+    }
+
+    template opDispatch(string s)
+    if (s != "clRead" && s != "clMap")
+    {
+        template opDispatch(TArgs ...)
+        {
+            auto opDispatch(Args ...)(auto ref Args args)
+            {
+                return typeof(this)(buffer, mixin(`dummySlice.` ~ s ~
+                        (TArgs.length ? `!TArgs` : ``) ~ `(args)`));
+            }
+        }
+    }
 
     auto toCLBuffer()
     {
         return CLBuffer!T(buffer);
+    }
+
+    auto opIndex(Args ...)(Args args)
+    {
+        return typeof(this)(buffer, dummySlice.opIndex(args));
+    }
+
+    auto opSlice(uint dim, Args ...)(Args args)
+    {
+        return dummySlice.opSlice!dim(args);
+    }
+
+    auto opDollar(uint dim)()
+    {
+        return dummySlice.opDollar!dim;
     }
 }
 
@@ -422,3 +504,4 @@ auto clBuildKernel(KernelDefT)(KernelDefT kernelDef)
     .buildProgram
     .createKernel!(KernelDefT.name);
 }
+
