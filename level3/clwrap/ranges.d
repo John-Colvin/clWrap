@@ -316,6 +316,9 @@ if (nDims_ != 0 && nDims_ <= 3)
         this.dummySlice = index;
     }
 
+    /++
+    + These offsets don't mean a whole lot...
+    +/
     size_t[nDims] offsets() @property
     {
         import std.algorithm : makeIndex;
@@ -347,7 +350,7 @@ if (nDims_ != 0 && nDims_ <= 3)
     }
 
     template opDispatch(string s)
-    if (s != "clRead" && s != "clMap")
+    if (s != "clRead" && s != "clMap" && s != "clWrite")
     {
         template opDispatch(TArgs ...)
         {
